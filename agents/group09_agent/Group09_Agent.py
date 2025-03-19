@@ -28,7 +28,7 @@ from geniusweb.references.Parameters import Parameters
 from tudelft_utilities_logging.ReportToLogger import ReportToLogger
 
 from .utils.opponent_model import OpponentModel
-
+from .utils.acceptance_condition import AcceptanceCondition
 
 class Group09_Agent(DefaultParty):
     """
@@ -51,6 +51,15 @@ class Group09_Agent(DefaultParty):
         self.last_received_bid: Bid = None
         self.opponent_model: OpponentModel = None
         self.logger.log(logging.INFO, "party is initialized")
+
+
+        # Acceptance condition
+        # Choose MAX_W or AVG_W by setting `use_max_w=True` or `False`
+        self.T = 0.99  # Time (0 - 1) after which acceptance condition becomes more lenient
+        self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=False)
+        self.bid_history = []
+
+
 
     def notifyChange(self, data: Inform):
         """MUST BE IMPLEMENTED
@@ -163,16 +172,14 @@ class Group09_Agent(DefaultParty):
         to perform and send this action to the opponent.
         """
         # check if the last received offer is good enough
-        if self.accept_condition(self.last_received_bid):
-            # if so, accept the offer
-            action = Accept(self.me, self.last_received_bid)
+        if self.last_received_bid and self.acceptance_condition.should_accept(self.last_received_bid):
+            self.logger.log(logging.INFO, "Decided to accept the last received offer")
+            self.send_action(Accept(self.me, self.last_received_bid))
         else:
             # if not, find a bid to propose as counter offer
             bid = self.find_bid()
-            action = Offer(self.me, bid)
-
-        # send the action
-        self.send_action(action)
+            self.logger.log(logging.INFO, f"Generated new bid to offer: {bid}")
+            self.send_action(Offer(self.me, bid))
 
     def save_data(self):
         """This method is called after the negotiation is finished. It can be used to store data
@@ -183,6 +190,27 @@ class Group09_Agent(DefaultParty):
         with open(f"{self.storage_dir}/data.md", "w") as f:
             f.write(data)
 
+
+    ###########################################################################################
+    ################################## Helper methods below ##################################
+    ###########################################################################################
+
+    def calculate_progress(self) -> float:
+        """Calculates the current progress of the negotiation.
+
+        Returns:
+            float: The progress of the negotiation as a float between 0 (start) and 1 (end).
+        """
+
+        progress = self.progress.get(int(time() * 1000))
+        return progress  # Ensure progress is within [0, 1]
+
+
+    def evaluate_bid(self, bid: Bid) -> float:
+        score = self.profile.getUtility(bid)
+        return float(score)
+
+
     ###########################################################################################
     ################################## Example methods below ##################################
     ###########################################################################################
@@ -192,7 +220,8 @@ class Group09_Agent(DefaultParty):
             return False
 
         # progress of the negotiation session between 0 and 1 (1 is deadline)
-        progress = self.progress.get(time() * 1000)
+        progress = self.calculate_progress()
+
 
         # very basic approach that accepts if the offer is valued above 0.7 and
         # 95% of the time towards the deadline has passed
@@ -201,6 +230,7 @@ class Group09_Agent(DefaultParty):
             progress > 0.95,
         ]
         return all(conditions)
+
 
     def find_bid(self) -> Bid:
         # compose a list of all possible bids
@@ -232,9 +262,9 @@ class Group09_Agent(DefaultParty):
         Returns:
             float: score
         """
-        progress = self.progress.get(time() * 1000)
+        progress = self.calculate_progress()
 
-        our_utility = float(self.profile.getUtility(bid))
+        our_utility = self.evaluate_bid(bid)
 
         time_pressure = 1.0 - progress ** (1 / eps)
         score = alpha * time_pressure * our_utility
