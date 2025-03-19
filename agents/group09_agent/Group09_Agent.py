@@ -57,7 +57,6 @@ class Group09_Agent(DefaultParty):
         # Choose MAX_W or AVG_W by setting `use_max_w=True` or `False`
         self.T = 0.99  # Time (0 - 1) after which acceptance condition becomes more lenient
         self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=False)
-        self.bid_history = []
 
 
 
