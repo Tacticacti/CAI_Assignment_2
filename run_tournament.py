@@ -17,10 +17,10 @@ if not RESULTS_DIR.exists():
 #   You need to specify a time deadline (is milliseconds (ms)) we are allowed to negotiate before we end without agreement.
 tournament_settings = {
     "agents": [
-        {
-            "class": "agents.template_agent.template_agent.TemplateAgent",
-            "parameters": {"storage_dir": "agent_storage/TemplateAgent"},
-        },
+        # {
+        #     "class": "agents.template_agent.template_agent.TemplateAgent",
+        #     "parameters": {"storage_dir": "agent_storage/TemplateAgent"},
+        # },
         {
             "class": "agents.group09_agent.Group09_Agent.Group09_Agent",
             "parameters": {"storage_dir": "agent_storage/Group09_Agent"},
