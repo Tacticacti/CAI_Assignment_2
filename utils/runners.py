@@ -19,8 +19,39 @@ from geniusweb.simplerunner.NegoRunner import StdOutReporter
 from geniusweb.simplerunner.Runner import Runner
 from pyson.ObjectMapper import ObjectMapper
 from uri.uri import URI
-
+from geniusweb.bidspace.pareto.ParetoLinearAdditive import ParetoLinearAdditive
+from geniusweb.issuevalue.Bid import Bid
+from geniusweb.party.DefaultParty import DefaultParty
+from geniusweb.profile.utilityspace.LinearAdditive import LinearAdditive
+from geniusweb.profileconnection.ProfileConnectionFactory import ProfileConnectionFactory
+from geniusweb.profileconnection.ProfileInterface import ProfileInterface
+from collections import defaultdict
+from typing import List, cast, Set
 from utils.ask_proceed import ask_proceed
+import plotly.graph_objects as go
+
+
+def compute_pareto_frontier(settings) -> List[Tuple[float, float]]:
+    profile_setting = settings["profiles"]
+    assert isinstance(profile_setting, list) and len(profile_setting) == 2
+    profiles = dict()
+
+    profiles_uris = [f"file:{x}" for x in profile_setting]
+    for profile_url in profiles_uris:
+        profile_int: ProfileInterface = ProfileConnectionFactory.create(
+            URI(profile_url), DefaultParty.getReporter
+        )
+        profile: LinearAdditive = cast(LinearAdditive, profile_int.getProfile())
+        profiles[profile_url] = profile
+
+    pareto = ParetoLinearAdditive(list(profiles.values()))
+    pareto_bids: Set[Bid] = pareto.getPoints()
+
+    frontier_points = []
+    for bid in pareto_bids:
+        utils = [float(profile.getUtility(bid)) for profile in profiles.values()]
+        frontier_points.append(tuple(utils))  # (u1, u2)
+    return frontier_points
 
 
 def run_session(settings) -> Tuple[dict, dict]:
@@ -43,6 +74,8 @@ def run_session(settings) -> Tuple[dict, dict]:
 
     # file path to uri
     profiles_uri = [f"file:{x}" for x in profiles]
+
+
 
     # create full settings dictionary that geniusweb requires
     settings_full = {

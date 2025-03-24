@@ -6,7 +6,7 @@ from pathlib import Path
 
 from utils.plot_trace import plot_trace
 from utils.runners import run_session
-from agents.group09_agent.utils.negotiation_plotter import NegotiationPlotter
+from utils.runners import compute_pareto_frontier
 
 RESULTS_DIR = Path("results", time.strftime('%Y%m%d-%H%M%S'))
 
@@ -52,6 +52,8 @@ with open(RESULTS_DIR.joinpath("session_results_summary.json"), "w", encoding="u
 
 
 
+
+
 # Extract agent names dynamically
 agent1_name = session_results_summary["agent_1"]
 agent2_name = session_results_summary["agent_2"]
@@ -82,19 +84,72 @@ for action in session_results_trace["actions"]:
 # Convert bid lists to NumPy arrays
 agent1_bids = np.array(agent1_bids)
 agent2_bids = np.array(agent2_bids)
-plotter = NegotiationPlotter(
-    agent1_name=agent1_name,
-    agent2_name=agent2_name,
-    agent1_bids=agent1_bids,
-    agent2_bids=agent2_bids,
-    accepted_bid=accepted_bid,
-    final_bid=final_bid
+
+
+# Assuming pareto_points is a list of (x, y) tuples
+pareto_points = compute_pareto_frontier(settings)
+
+# Sort points by x in increasing order
+pareto_points_sorted = sorted(pareto_points, key=lambda u: u[0])
+
+# Unzip into x and y
+x = [u[0] for u in pareto_points_sorted]
+y = [u[1] for u in pareto_points_sorted]
+
+fig = go.Figure()
+
+fig.add_trace(go.Scatter(
+    x=agent1_bids[:, 0], y=agent1_bids[:, 1],
+    mode='markers', name=f'{agent1_name} Bids',
+    marker=dict(symbol='circle', color='blue', size=8, opacity=0.6),
+    hoverinfo='text',
+    hovertext=[f'{agent1_name}: {u1:.2f}, {agent2_name}: {u2:.2f}' for u1, u2 in agent1_bids]
+))
+
+fig.add_trace(go.Scatter(
+    x=agent2_bids[:, 0], y=agent2_bids[:, 1],
+    mode='markers', name=f'{agent2_name} Bids',
+    marker=dict(symbol='square', color='green', size=8, opacity=0.6),
+    hoverinfo='text',
+    hovertext=[f'{agent1_name}: {u1:.2f}, {agent2_name}: {u2:.2f}' for u1, u2 in agent2_bids]
+))
+
+fig.add_trace(go.Scatter(
+    x=x, y=y,
+    mode='lines+markers', name='Pareto Frontier',
+    line=dict(color='red', width=3, dash='dash'),
+    marker=dict(symbol='star', color='red', size=10, opacity=0.8),
+    hoverinfo='text',
+    hovertext=[f'Pareto ({agent1_name}): {u1:.2f}, Pareto ({agent2_name}): {u2:.2f}' for u1, u2 in pareto_points_sorted]
+))
+
+
+if accepted_bid:
+    fig.add_trace(go.Scatter(
+        x=[accepted_bid[0]], y=[accepted_bid[1]],
+        mode='markers', name='Final Agreement',
+        marker=dict(symbol='hexagon', color='gold', size=14, opacity=0.9),
+        hoverinfo='text',
+        hovertext=[
+            f'Accepted ({agent1_name}): {accepted_bid[0]:.2f}, ({agent2_name}): {accepted_bid[1]:.2f}']
+    ))
+
+fig.update_layout(
+    title='Negotiation Bids and Pareto Front Analysis',
+    xaxis_title=f'Utility for {agent1_name} (Agent 1)',
+    yaxis_title=f'Utility for {agent2_name} (Agent 2)',
+    legend_title="Bid Types and Outcomes",
+    font=dict(family="Arial, sans-serif", size=12, color="#4B0082"),
+    legend=dict(y=1, x=0, orientation="h"),
+    template="plotly_white",
+    annotations=[dict(
+        xref='paper', yref='paper', x=0.5, y=-0.2,
+        xanchor='center', yanchor='top',
+        text='Utility values represent the favorability for each agent. Symbols indicate bid types.',
+        font=dict(family='Arial, sans-serif', size=12),
+        showarrow=False
+    )]
 )
-
-# Optional: compute distance to Pareto frontier
-distance = plotter.compute_distance_to_pareto()
-if distance is not None:
-    print(f"Distance to Pareto frontier: {distance:.4f}")
-
-# Save interactive plot
-plotter.plot(RESULTS_DIR / "pareto_bids.html")
+output_file = RESULTS_DIR.joinpath("pareto_trace_plot.html")
+fig.write_html(output_file)
+print(f"Saved Pareto frontier plot to: {output_file}")

@@ -55,8 +55,15 @@ class Group09_Agent(DefaultParty):
 
         # Acceptance condition
         # Choose MAX_W or AVG_W by setting `use_max_w=True` or `False`
-        self.T = 0.99  # Time (0 - 1) after which acceptance condition becomes more lenient
+        self.T = 0.98  # Time (0 - 1) after which acceptance condition becomes more lenient
         self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=False)
+
+        self.last_sent_bid: Bid = None
+        self.accepted_bid: Bid = None
+        self.beta = 0.2  # Concession rate
+        self.mu = 0.5  # Reserve
+
+
 
 
 
@@ -81,12 +88,15 @@ class Group09_Agent(DefaultParty):
             self.parameters = self.settings.getParameters()
             self.storage_dir = self.parameters.get("storage_dir")
 
+
+
             # the profile contains the preferences of the agent over the domain
             profile_connection = ProfileConnectionFactory.create(
                 data.getProfile().getURI(), self.getReporter()
             )
             self.profile = profile_connection.getProfile()
             self.domain = self.profile.getDomain()
+
             profile_connection.close()
 
         # ActionDone informs you of an action (an offer or an accept)
@@ -94,6 +104,9 @@ class Group09_Agent(DefaultParty):
         elif isinstance(data, ActionDone):
             action = cast(ActionDone, data).getAction()
             actor = action.getActor()
+            bid = action.getBid()
+            if (isinstance(action, Accept)):
+                self.accepted_bid = bid
 
             # ignore action if it is our action
             if actor != self.me:
@@ -177,6 +190,8 @@ class Group09_Agent(DefaultParty):
         else:
             # if not, find a bid to propose as counter offer
             bid = self.find_bid()
+            # Remember to update `self.last_sent_bid` with the new bid
+            self.last_sent_bid = bid
             self.logger.log(logging.INFO, f"Generated new bid to offer: {bid}")
             self.send_action(Offer(self.me, bid))
 
@@ -189,7 +204,6 @@ class Group09_Agent(DefaultParty):
         with open(f"{self.storage_dir}/data.md", "w") as f:
             f.write(data)
 
-
     ###########################################################################################
     ################################## Helper methods below ##################################
     ###########################################################################################
@@ -200,7 +214,6 @@ class Group09_Agent(DefaultParty):
         Returns:
             float: The progress of the negotiation as a float between 0 (start) and 1 (end).
         """
-
         progress = self.progress.get(int(time() * 1000))
         return progress  # Ensure progress is within [0, 1]
 
@@ -210,26 +223,22 @@ class Group09_Agent(DefaultParty):
         return float(score)
 
 
+    def get_target_utility(self) -> float:
+
+        # If it's first turn, aim for best possible utility
+        if self.last_sent_bid is None or self.last_received_bid is None:
+            return 1.0
+
+        opponent_utility = self.opponent_model.get_predicted_utility(self.last_received_bid)
+        own_utility = self.evaluate_bid(self.last_sent_bid)
+        concession = self.beta * ((1 - self.mu) / own_utility) * (opponent_utility - own_utility)
+
+        target_utility = own_utility + concession
+        return target_utility
+
     ###########################################################################################
     ################################## Example methods below ##################################
     ###########################################################################################
-
-    def accept_condition(self, bid: Bid) -> bool:
-        if bid is None:
-            return False
-
-        # progress of the negotiation session between 0 and 1 (1 is deadline)
-        progress = self.calculate_progress()
-
-
-        # very basic approach that accepts if the offer is valued above 0.7 and
-        # 95% of the time towards the deadline has passed
-        conditions = [
-            self.profile.getUtility(bid) > 0.8,
-            progress > 0.95,
-        ]
-        return all(conditions)
-
 
     def find_bid(self) -> Bid:
         # compose a list of all possible bids
@@ -240,7 +249,7 @@ class Group09_Agent(DefaultParty):
         best_bid = None
 
         # take 500 attempts to find a bid according to a heuristic score
-        for _ in range(500):
+        for _ in range(800):
             bid = all_bids.get(randint(0, all_bids.size() - 1))
             bid_score = self.score_bid(bid)
             if bid_score > best_bid_score:
