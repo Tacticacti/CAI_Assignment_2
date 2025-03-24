@@ -55,13 +55,13 @@ class Group09_Agent(DefaultParty):
 
         # Acceptance condition
         # Choose MAX_W or AVG_W by setting `use_max_w=True` or `False`
-        self.T = 0.99 # Time (0 - 1) after which acceptance condition becomes more lenient
+        self.T = 0.8 # Time (0 - 1) after which acceptance condition becomes more lenient
         self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=False)
 
         self.last_sent_bid: Bid = None
-        self.accepted_bid: Bid = None
-        self.beta = 0.13  # Concession rate
-        self.mu = 0.8  # Reserve
+
+        self.beta = 0.1  # Concession rate
+        self.mu = 0.8 # Reserve
 
 
 
@@ -104,9 +104,6 @@ class Group09_Agent(DefaultParty):
         elif isinstance(data, ActionDone):
             action = cast(ActionDone, data).getAction()
             actor = action.getActor()
-            bid = action.getBid()
-            if (isinstance(action, Accept)):
-                self.accepted_bid = bid
 
             # ignore action if it is our action
             if actor != self.me:
@@ -231,7 +228,7 @@ class Group09_Agent(DefaultParty):
 
         opponent_utility = self.opponent_model.get_predicted_utility(self.last_received_bid)
         own_utility = self.evaluate_bid(self.last_sent_bid)
-        concession = self.beta * ((1 - self.mu) / own_utility) * (opponent_utility - own_utility)
+        concession = ((1 - self.mu) / own_utility) * (opponent_utility - own_utility)
 
         target_utility = own_utility + concession
         return target_utility
@@ -259,10 +256,6 @@ class Group09_Agent(DefaultParty):
         self.last_sent_bid = candidate_bids[0]
         return candidate_bids[0]
 
-    def score_bid(self, bid, alpha=0.7):
-        own = self.evaluate_bid(bid)
-        opp = self.opponent_model.get_predicted_utility(bid) if self.opponent_model else 0.0
-        return alpha * own + (1 - alpha) * opp
 
     def compute_similarity(self, bid1, bid2):
         matches = sum(1 for i in bid1.getIssues() if bid1.getValue(i) == bid2.getValue(i))
@@ -289,7 +282,7 @@ class Group09_Agent(DefaultParty):
 
         return best_bid
 
-    def score_bid2(self, bid: Bid, alpha: float = 0.95, eps: float = 0.1) -> float:
+    def score_bid(self, bid: Bid, alpha: float = 0.95, eps: float = 0.1) -> float:
         """Calculate heuristic score for a bid
 
         Args:

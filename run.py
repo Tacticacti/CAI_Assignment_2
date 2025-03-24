@@ -25,17 +25,21 @@ settings = {
         #     "parameters": {"storage_dir": "agent_storage/DreamTeam109Agent"},
         # },
         # {
-        #     "class": "agents.template_agent.template_agent.TemplateAgent",
-        #     "parameters": {"storage_dir": "agent_storage/TemplateAgent"},
+        #     "class": "agents.hardliner_agent.hardliner_agent.HardlinerAgent",
+        #     "parameters": {"storage_dir": "agent_storage/HardlinerAgent"},
         # },
+        {
+            "class": "agents.boulware_agent.boulware_agent.BoulwareAgent",
+            "parameters": {"storage_dir": "agent_storage/BoulwareAgent"},
+        },
         {
             "class": "agents.group09_agent.Group09_Agent.Group09_Agent",
             "parameters": {"storage_dir": "agent_storage/Group09_Agent"},
         },
-{
-            "class": "agents.CSE3210.agent68.agent68.Agent68",
-            "parameters": {"storage_dir": "agent_storage/Agent68"},
-        },
+# {
+#             "class": "agents.CSE3210.agent68.agent68.Agent68",
+#             "parameters": {"storage_dir": "agent_storage/Agent68"},
+#         },
 
     ],
     "profiles": ["domains/domain00/profileA.json", "domains/domain00/profileB.json"],
@@ -149,8 +153,37 @@ fig.add_trace(go.Scatter(
     hovertext=[f'{agent1_name}: {u1:.2f}, {agent2_name}: {u2:.2f}' for u1, u2 in agent2_bids]
 ))
 
+def euclidean_distance(p1, p2):
+    return np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
 if accepted_bid:
+    # Compute distance from agreement to all Pareto frontier points
+    distances = [euclidean_distance(accepted_bid, p) for p in pareto_points]
+    min_distance = min(distances)
+    closest_pareto = pareto_points[np.argmin(distances)]
+
+    print(f"Accepted bid: {accepted_bid}")
+    print(f"Closest Pareto point: {closest_pareto}")
+    print(f"Distance from Pareto frontier: {min_distance:.4f}")
+
+    # Optionally plot the closest Pareto point and a connecting line
+    fig.add_trace(go.Scatter(
+        x=[closest_pareto[0]], y=[closest_pareto[1]],
+        mode='markers', name='Closest Pareto Point',
+        marker=dict(symbol='x', color='black', size=12),
+        hoverinfo='text',
+        hovertext=[f'Closest Pareto: {closest_pareto[0]:.2f}, {closest_pareto[1]:.2f}']
+    ))
+
+    # Add a line from agreement to closest Pareto point
+    fig.add_trace(go.Scatter(
+        x=[accepted_bid[0], closest_pareto[0]],
+        y=[accepted_bid[1], closest_pareto[1]],
+        mode='lines',
+        line=dict(color='gray', dash='dot'),
+        showlegend=False
+    ))
+
     fig.add_trace(go.Scatter(
         x=[accepted_bid[0]], y=[accepted_bid[1]],
         mode='markers', name='Final Agreement',
