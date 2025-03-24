@@ -20,10 +20,10 @@ if not RESULTS_DIR.exists():
 #   You need to specify a time deadline (is milliseconds (ms)) we are allowed to negotiate before we end without agreement
 settings = {
     "agents": [
-        {
-            "class": "agents.ANL2022.dreamteam109_agent.dreamteam109_agent.DreamTeam109Agent",
-            "parameters": {"storage_dir": "agent_storage/DreamTeam109Agent"},
-        },
+        # {
+        #     "class": "agents.ANL2022.dreamteam109_agent.dreamteam109_agent.DreamTeam109Agent",
+        #     "parameters": {"storage_dir": "agent_storage/DreamTeam109Agent"},
+        # },
         # {
         #     "class": "agents.template_agent.template_agent.TemplateAgent",
         #     "parameters": {"storage_dir": "agent_storage/TemplateAgent"},
@@ -32,6 +32,11 @@ settings = {
             "class": "agents.group09_agent.Group09_Agent.Group09_Agent",
             "parameters": {"storage_dir": "agent_storage/Group09_Agent"},
         },
+{
+            "class": "agents.CSE3210.agent68.agent68.Agent68",
+            "parameters": {"storage_dir": "agent_storage/Agent68"},
+        },
+
     ],
     "profiles": ["domains/domain00/profileA.json", "domains/domain00/profileB.json"],
     "deadline_time_ms": 10000,
@@ -58,6 +63,21 @@ with open(RESULTS_DIR.joinpath("session_results_summary.json"), "w", encoding="u
 agent1_name = session_results_summary["agent_1"]
 agent2_name = session_results_summary["agent_2"]
 
+
+# Full names from trace (ending with _1 or _2)
+agent1_full = None
+agent2_full = None
+for action in session_results_trace["actions"]:
+    if "Offer" in action:
+        actor = action["Offer"]["actor"]
+        if actor.endswith("_1"):
+            agent1_full = actor
+        elif actor.endswith("_2"):
+            agent2_full = actor
+        if agent1_full and agent2_full:
+            break
+
+
 # Extract final agreement (if reached)
 final_bid = (session_results_summary["utility_1"], session_results_summary["utility_2"])
 
@@ -66,13 +86,15 @@ agent1_bids, agent2_bids = [], []
 accepted_bid = None
 
 # Extract bid utilities from the negotiation trace
+count = 0
 for action in session_results_trace["actions"]:
+    count+=1
     if "Offer" in action:
         utilities = action["Offer"]["utilities"]
         u1, u2 = list(utilities.values())  # Extract utilities in order
 
         actor = action["Offer"]["actor"]
-        if agent1_name in actor:
+        if agent1_full in actor:
             agent1_bids.append((u1, u2))
         else:
             agent2_bids.append((u1, u2))
@@ -81,9 +103,12 @@ for action in session_results_trace["actions"]:
         utilities = action["Accept"]["utilities"]
         accepted_bid = tuple(utilities.values())  # Save accepted bid utilities
 
+
+
 # Convert bid lists to NumPy arrays
 agent1_bids = np.array(agent1_bids)
 agent2_bids = np.array(agent2_bids)
+
 
 
 # Assuming pareto_points is a list of (x, y) tuples
@@ -98,21 +123,6 @@ y = [u[1] for u in pareto_points_sorted]
 
 fig = go.Figure()
 
-fig.add_trace(go.Scatter(
-    x=agent1_bids[:, 0], y=agent1_bids[:, 1],
-    mode='markers', name=f'{agent1_name} Bids',
-    marker=dict(symbol='circle', color='blue', size=8, opacity=0.6),
-    hoverinfo='text',
-    hovertext=[f'{agent1_name}: {u1:.2f}, {agent2_name}: {u2:.2f}' for u1, u2 in agent1_bids]
-))
-
-fig.add_trace(go.Scatter(
-    x=agent2_bids[:, 0], y=agent2_bids[:, 1],
-    mode='markers', name=f'{agent2_name} Bids',
-    marker=dict(symbol='square', color='green', size=8, opacity=0.6),
-    hoverinfo='text',
-    hovertext=[f'{agent1_name}: {u1:.2f}, {agent2_name}: {u2:.2f}' for u1, u2 in agent2_bids]
-))
 
 fig.add_trace(go.Scatter(
     x=x, y=y,
@@ -121,6 +131,22 @@ fig.add_trace(go.Scatter(
     marker=dict(symbol='star', color='red', size=10, opacity=0.8),
     hoverinfo='text',
     hovertext=[f'Pareto ({agent1_name}): {u1:.2f}, Pareto ({agent2_name}): {u2:.2f}' for u1, u2 in pareto_points_sorted]
+))
+
+fig.add_trace(go.Scatter(
+    x=agent1_bids[:, 0], y=agent1_bids[:, 1],
+    mode='markers', name=f'{agent1_name} Bids',
+    marker=dict(symbol='circle', color='blue', size=8, opacity=0.3),
+    hoverinfo='text',
+    hovertext=[f'{agent1_name}: {u1:.2f}, {agent2_name}: {u2:.2f}' for u1, u2 in agent1_bids]
+))
+
+fig.add_trace(go.Scatter(
+    x=agent2_bids[:, 0], y=agent2_bids[:, 1],
+    mode='markers', name=f'{agent2_name} Bids',
+    marker=dict(symbol='square', color='green', size=8, opacity=0.3),
+    hoverinfo='text',
+    hovertext=[f'{agent1_name}: {u1:.2f}, {agent2_name}: {u2:.2f}' for u1, u2 in agent2_bids]
 ))
 
 

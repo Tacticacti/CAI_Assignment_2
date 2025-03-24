@@ -114,12 +114,12 @@ tournament_settings = {
         # {
         #     "class": "agents.CSE3210.agent64.agent64.Agent64",
         # },
-        # {
-        #     "class": "agents.CSE3210.agent67.agent67.Agent67",
-        # },
-        # {
-        #     "class": "agents.CSE3210.agent68.agent68.Agent68",
-        # },
+        {
+            "class": "agents.CSE3210.agent67.agent67.Agent67",
+        },
+        {
+            "class": "agents.CSE3210.agent68.agent68.Agent68",
+        },
     ],
     "profile_sets": [
         ["domains/domain00/profileA.json", "domains/domain00/profileB.json"],

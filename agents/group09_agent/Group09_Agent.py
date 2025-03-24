@@ -55,13 +55,13 @@ class Group09_Agent(DefaultParty):
 
         # Acceptance condition
         # Choose MAX_W or AVG_W by setting `use_max_w=True` or `False`
-        self.T = 0.98  # Time (0 - 1) after which acceptance condition becomes more lenient
+        self.T = 0.99 # Time (0 - 1) after which acceptance condition becomes more lenient
         self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=False)
 
         self.last_sent_bid: Bid = None
         self.accepted_bid: Bid = None
-        self.beta = 0.2  # Concession rate
-        self.mu = 0.5  # Reserve
+        self.beta = 0.13  # Concession rate
+        self.mu = 0.8  # Reserve
 
 
 
@@ -236,11 +236,43 @@ class Group09_Agent(DefaultParty):
         target_utility = own_utility + concession
         return target_utility
 
+    def find_bid(self):
+        all_bids = AllBidsList(self.domain)
+        target_utility = self.get_target_utility()
+        tolerance = 0.05
+
+        # 1. Generate bids near target (iso-utility band)
+        candidate_bids = [bid for bid in all_bids if abs(self.evaluate_bid(bid) - target_utility) <= tolerance]
+
+        # 2. Fallback if none found
+        if not candidate_bids:
+            candidate_bids = [bid for bid in all_bids if self.evaluate_bid(bid) >= target_utility]
+        if not candidate_bids:
+            candidate_bids = list(all_bids)
+
+        # 3. Sort by trade-off: similarity or mutual score
+        if self.last_received_bid:
+            candidate_bids.sort(key=lambda b: self.compute_similarity(b, self.last_received_bid), reverse=True)
+        else:
+            candidate_bids.sort(key=lambda b: self.score_bid(b), reverse=True)
+
+        self.last_sent_bid = candidate_bids[0]
+        return candidate_bids[0]
+
+    def score_bid(self, bid, alpha=0.7):
+        own = self.evaluate_bid(bid)
+        opp = self.opponent_model.get_predicted_utility(bid) if self.opponent_model else 0.0
+        return alpha * own + (1 - alpha) * opp
+
+    def compute_similarity(self, bid1, bid2):
+        matches = sum(1 for i in bid1.getIssues() if bid1.getValue(i) == bid2.getValue(i))
+        return matches / len(bid1.getIssues())
+
     ###########################################################################################
     ################################## Example methods below ##################################
     ###########################################################################################
 
-    def find_bid(self) -> Bid:
+    def find_bid2(self) -> Bid:
         # compose a list of all possible bids
         domain = self.profile.getDomain()
         all_bids = AllBidsList(domain)
@@ -249,7 +281,7 @@ class Group09_Agent(DefaultParty):
         best_bid = None
 
         # take 500 attempts to find a bid according to a heuristic score
-        for _ in range(800):
+        for _ in range(500):
             bid = all_bids.get(randint(0, all_bids.size() - 1))
             bid_score = self.score_bid(bid)
             if bid_score > best_bid_score:
@@ -257,7 +289,7 @@ class Group09_Agent(DefaultParty):
 
         return best_bid
 
-    def score_bid(self, bid: Bid, alpha: float = 0.95, eps: float = 0.1) -> float:
+    def score_bid2(self, bid: Bid, alpha: float = 0.95, eps: float = 0.1) -> float:
         """Calculate heuristic score for a bid
 
         Args:
