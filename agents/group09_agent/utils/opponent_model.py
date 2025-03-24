@@ -71,6 +71,7 @@ class IssueEstimator:
         self.weight = 0
         self.change_count = 0
         self.last_value = None
+        self.issue_changes = 0  # Track changes in issue values
 
         # Initialize prior probabilities uniformly
         self.prior_probabilities = {value: 1 / self.num_values for value in value_set}
@@ -92,6 +93,10 @@ class IssueEstimator:
         self.weight = (self.max_value_count - equal_shares) / (
             self.bids_received - equal_shares
         )
+
+        # Track changes in issue values
+        if value_tracker.count == 1:
+            self.issue_changes += 1
 
         # recalculate all value utilities
         for value_tracker in self.value_trackers.values():
