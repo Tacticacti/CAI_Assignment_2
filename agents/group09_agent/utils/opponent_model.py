@@ -69,6 +69,12 @@ class IssueEstimator:
         self.num_values = value_set.size()
         self.value_trackers = defaultdict(ValueEstimator)
         self.weight = 0
+        self.change_count = 0
+        self.last_value = None
+        self.issue_changes = 0  # Track changes in issue values
+
+        # Initialize prior probabilities uniformly
+        self.prior_probabilities = {value: 1 / self.num_values for value in value_set}
 
     def update(self, value: Value):
         self.bids_received += 1
@@ -83,18 +89,21 @@ class IssueEstimator:
         self.max_value_count = max([value_tracker.count, self.max_value_count])
 
         # update predicted issue weight
-        # the intuition here is that if the values of the receiverd offers spread out over all
-        # possible values, then this issue is likely not important to the opponent (weight == 0.0).
-        # If all received offers proposed the same value for this issue,
-        # then the predicted issue weight == 1.0
         equal_shares = self.bids_received / self.num_values
         self.weight = (self.max_value_count - equal_shares) / (
             self.bids_received - equal_shares
         )
 
+        # Track changes in issue values
+        if value_tracker.count == 1:
+            self.issue_changes += 1
+
         # recalculate all value utilities
         for value_tracker in self.value_trackers.values():
             value_tracker.recalculate_utility(self.max_value_count, self.weight)
+
+        # Perform Bayesian update
+        self.bayesian_update(value)
 
     def get_value_utility(self, value: Value):
         if value in self.value_trackers:
@@ -102,6 +111,18 @@ class IssueEstimator:
 
         return 0
 
+    def bayesian_update(self, value: Value):
+        # Likelihood of the observed value
+        likelihood = {v: 1 if v == value else 0.1 for v in self.prior_probabilities}
+
+        # Update posterior probabilities using Bayes' theorem
+        for v in self.prior_probabilities:
+            self.prior_probabilities[v] *= likelihood[v]
+
+        # Normalize the probabilities
+        total_prob = sum(self.prior_probabilities.values())
+        for v in self.prior_probabilities:
+            self.prior_probabilities[v] /= total_prob
 
 class ValueEstimator:
     def __init__(self):
