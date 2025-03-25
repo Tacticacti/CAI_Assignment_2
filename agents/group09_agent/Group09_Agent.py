@@ -2,7 +2,7 @@ import logging
 from random import randint
 from time import time
 from typing import cast
-
+import os
 from geniusweb.actions.Accept import Accept
 from geniusweb.actions.Action import Action
 from geniusweb.actions.Offer import Offer
@@ -29,6 +29,9 @@ from tudelft_utilities_logging.ReportToLogger import ReportToLogger
 
 from .utils.opponent_model import OpponentModel
 from .utils.acceptance_condition import AcceptanceCondition
+import plotly.graph_objects as go
+from .utils.plot_pareto_trace import PlotParetoTrace
+from pathlib import Path
 
 class Group09_Agent(DefaultParty):
     """
@@ -57,6 +60,7 @@ class Group09_Agent(DefaultParty):
         # Choose MAX_W or AVG_W by setting `use_max_w=True` or `False`
         self.T = 0.8 # Time (0 - 1) after which acceptance condition becomes more lenient
         self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=False)
+        self.bid_history = []
 
         self.last_sent_bid: Bid = None
 
@@ -78,6 +82,7 @@ class Group09_Agent(DefaultParty):
 
         # a Settings message is the first message that will be send to your
         # agent containing all the information about the negotiation session.
+
         if isinstance(data, Settings):
             self.settings = cast(Settings, data)
             self.me = self.settings.getID()
@@ -86,6 +91,7 @@ class Group09_Agent(DefaultParty):
             self.progress = self.settings.getProgress()
 
             self.parameters = self.settings.getParameters()
+
             self.storage_dir = self.parameters.get("storage_dir")
 
 
@@ -104,6 +110,10 @@ class Group09_Agent(DefaultParty):
         elif isinstance(data, ActionDone):
             action = cast(ActionDone, data).getAction()
             actor = action.getActor()
+            bid = action.getBid()
+
+            if (isinstance(action, Accept)):
+                self.log_bid(bid, str(actor), "Accept")  # Ensure actor is properly identified
 
             # ignore action if it is our action
             if actor != self.me:
@@ -175,6 +185,7 @@ class Group09_Agent(DefaultParty):
             self.opponent_model.update(bid)
             # set bid as last received
             self.last_received_bid = bid
+            self.log_bid(bid, str(self.other), "Offer")  # Ensure actor is properly identified
 
     def my_turn(self):
         """This method is called when it is our turn. It should decide upon an action
@@ -189,6 +200,8 @@ class Group09_Agent(DefaultParty):
             bid = self.find_bid()
             # Remember to update `self.last_sent_bid` with the new bid
             self.last_sent_bid = bid
+            # Log the bid before sending it
+            self.log_bid(bid, str(self.me), "Offer")  # Log using the agent's own ID
             self.logger.log(logging.INFO, f"Generated new bid to offer: {bid}")
             self.send_action(Offer(self.me, bid))
 
@@ -200,10 +213,153 @@ class Group09_Agent(DefaultParty):
         data = "Data for learning (see README.md)"
         with open(f"{self.storage_dir}/data.md", "w") as f:
             f.write(data)
+            self.visualize_pareto_front()
 
     ###########################################################################################
     ################################## Helper methods below ##################################
     ###########################################################################################
+    def visualize_pareto_front(self):
+        """
+        Uses PlotParetoTrace to visualize bid history and the Pareto frontier.
+        """
+        pareto_csv_path = Path(self.parameters.get("pareto_csv"))
+        # Prepare bid arrays for plotting
+        agent_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if
+                      b['actor'] == str(self.me)]
+        opponent_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if
+                         b['actor'] == str(self.other)]
+        accepted_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if b['type'] == "Accept"]
+
+        # Parse agent names
+        agent_name = "_".join(str(self.me).rsplit("_", 2)[-2:])
+        opponent_name = "_".join(str(self.other).rsplit("_", 2)[-2:])
+
+        # Get accepted bid (assumes only one final agreement)
+        accepted_bid = accepted_bids[-1] if accepted_bids else None
+
+        # Use PlotParetoTrace
+        plotter = PlotParetoTrace(
+            agent1_name=agent_name,
+            agent2_name=opponent_name,
+            pareto_csv_path=pareto_csv_path,
+            agent1_bids=agent_bids,
+            agent2_bids=opponent_bids,
+            accepted_bid=accepted_bid
+        )
+
+        fig = plotter.plot()
+        os.makedirs(self.storage_dir, exist_ok=True)
+        fig.write_html(Path(self.storage_dir) / "pareto_trace_plot.html")
+
+    def visualize_pareto_front2(self):
+        """
+            Visualizes the negotiation's bids in relation to the Pareto frontier using a Plotly scatter plot.
+
+            This method performs Pareto efficiency analysis on the bid history and generates a visual
+            representation of the agent's and opponent's offered bids against the identified Pareto optimal
+            frontier. Accepted bids are also plotted to provide a complete picture of the negotiation dynamics.
+
+            The scatter plot includes:
+            - Blue dots connected by lines representing the agent's offered bids over time.
+            - Green dots connected by lines representing the opponent's offered bids over time.
+            - Red stars connected by dashed lines indicating the bids on the Pareto frontier.
+            - Gold hexagons representing bids that were accepted by either party.
+
+            Each point on the plot includes hover text detailing the corresponding utility values for both the
+            agent and the opponent, providing an interactive way to assess the negotiation process.
+
+            The resulting plot is saved as an HTML file within the specified storage directory and then displayed.
+            """
+
+
+        # Separate utilities for plotting
+        agent_self_utilities, agent_opponent_utilities = zip(
+            *[(b['utility_self'], b['utility_opponent']) for b in self.bid_history if b['actor'] == str(self.me)])
+        opponent_self_utilities, opponent_opponent_utilities = zip(
+            *[(b['utility_self'], b['utility_opponent']) for b in self.bid_history if b['actor'] == str(self.other)])
+
+
+        # Adding this check to ensure there are accepted bids before trying to unpack them
+        if any(b['type'] == "Accept" for b in self.bid_history):
+            accept_self_utilities, accept_opponent_utilities = zip(
+                *[(b['utility_self'], b['utility_opponent']) for b in self.bid_history if b['type'] == "Accept"])
+        else:
+            accept_self_utilities, accept_opponent_utilities = [], []
+
+        # Create Plotly figure
+        fig = go.Figure()
+
+        # Add scatter plot for all agent bids
+        fig.add_trace(go.Scatter(x=agent_self_utilities, y=agent_opponent_utilities,
+                                 mode='markers+lines', name='Agent Offered Bids',
+                                 marker=dict(symbol='circle', color='blue', size=10, opacity=0.5),
+                                 hoverinfo='text',
+                                 hovertext=[f'Utility (Agent): {u_self:.2f}, Utility (Opponent): {u_opp:.2f}' for
+                                            u_self, u_opp in zip(agent_self_utilities, agent_opponent_utilities)]))
+
+        # Add scatter plot for all opponent bids
+        fig.add_trace(go.Scatter(x=opponent_self_utilities, y=opponent_opponent_utilities,
+                                 mode='markers+lines', name='Opponent Offered Bids',
+                                 marker=dict(symbol='circle', color='green', size=10, opacity=0.5),
+                                 hoverinfo='text',
+                                 hovertext=[f'Utility (Agent): {u_self:.2f}, Utility (Opponent): {u_opp:.2f}' for
+                                            u_self, u_opp in
+                                            zip(opponent_self_utilities, opponent_opponent_utilities)]))
+
+        # # Add scatter plot for Pareto front
+        # fig.add_trace(go.Scatter(x=pareto_self_utilities, y=pareto_opponent_utilities,
+        #                          mode='markers+lines', name='Pareto Front',
+        #                          line=dict(color='red', width=2, dash='dash'),
+        #                          marker=dict(symbol='star', color='red', size=12, opacity=0.8),
+        #                          hoverinfo='text',
+        #                          hovertext=[
+        #                              f'Pareto Utility (Agent): {u_self:.2f}, Pareto Utility (Opponent): {u_opp:.2f}' for
+        #                              u_self, u_opp in zip(pareto_self_utilities, pareto_opponent_utilities)]))
+
+        # Add scatter plot for accepted bids (if any)
+        if accept_self_utilities and accept_opponent_utilities:  # Check to avoid plotting when there are no accepted bids
+            fig.add_trace(go.Scatter(x=accept_self_utilities, y=accept_opponent_utilities,
+                                     mode='markers', name='Accepted Bids',
+                                     marker=dict(symbol='hexagon', color='gold', size=12, opacity=0.8),
+                                     hoverinfo='text',
+                                     hovertext=[f'Utility (Agent): {u_self:.2f}, Utility (Opponent): {u_opp:.2f}' for
+                                                u_self, u_opp in
+                                                zip(accept_self_utilities, accept_opponent_utilities)]))
+
+        # Set figure layout
+        fig.update_layout(
+            title='Negotiation Bids and Pareto Front Analysis',
+            xaxis_title=f'Utility for {"_".join(str(self.me).rsplit("_", 2)[-2:])} (Agent)',
+            yaxis_title=f'Utility for {"_".join(str(self.other).rsplit("_", 2)[-2:])} (Opponent)',
+            legend_title="Bid Types and Outcomes",
+            font=dict(family="Arial, sans-serif", size=12, color="#4B0082"),  # Using a hexadecimal color code
+            legend=dict(y=1, x=0, orientation="h"),
+            annotations=[dict(xref='paper', yref='paper', x=0.5, y=-0.2,
+                              xanchor='center', yanchor='top',
+                              text='Utility values represent the outcome favorability for each participant. Symbols indicate bid types.',
+                              font=dict(family='Arial, sans-serif', size=12),
+                              showarrow=False)]
+        )
+
+        # Serialize and save the Pareto data as JSON
+
+        os.makedirs(self.storage_dir, exist_ok=True)  # Ensure the directory exists
+        filename = f'{self.storage_dir}/pareto_optimal_vs_offered_bids_{time()}.html'
+        fig.write_html(filename)
+
+    def log_bid(self, bid, actor, actionType):
+        # create opponent model if it was not yet initialised
+        if self.opponent_model is None:
+            self.opponent_model = OpponentModel(self.domain)
+
+        utility_self = self.evaluate_bid(bid)
+        utility_opponent = self.opponent_model.get_predicted_utility(bid)
+        self.bid_history.append({
+            "type": actionType,
+            "actor": str(actor),
+            "utility_self": utility_self,
+            "utility_opponent": utility_opponent
+        })
 
     def calculate_progress(self) -> float:
         """Calculates the current progress of the negotiation.

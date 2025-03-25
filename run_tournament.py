@@ -33,18 +33,18 @@ tournament_settings = {
             "class": "agents.conceder_agent.conceder_agent.ConcederAgent",
             "parameters": {"storage_dir": "agent_storage/ConcederAgent"},
         },
-        # {
-        #     "class": "agents.hardliner_agent.hardliner_agent.HardlinerAgent",
-        # },
-        # {
-        #     "class": "agents.linear_agent.linear_agent.LinearAgent",
-        # },
-        # {
-        #     "class": "agents.random_agent.random_agent.RandomAgent",
-        # },
-        # {
-        #     "class": "agents.stupid_agent.stupid_agent.StupidAgent",
-        # },
+        {
+            "class": "agents.hardliner_agent.hardliner_agent.HardlinerAgent",
+        },
+        {
+            "class": "agents.linear_agent.linear_agent.LinearAgent",
+        },
+        {
+            "class": "agents.random_agent.random_agent.RandomAgent",
+        },
+        {
+            "class": "agents.stupid_agent.stupid_agent.StupidAgent",
+        },
         # {
         #     "class": "agents.CSE3210.agent2.agent2.Agent2",
         # },
@@ -114,12 +114,12 @@ tournament_settings = {
         # {
         #     "class": "agents.CSE3210.agent64.agent64.Agent64",
         # },
-        {
-            "class": "agents.CSE3210.agent67.agent67.Agent67",
-        },
-        {
-            "class": "agents.CSE3210.agent68.agent68.Agent68",
-        },
+        # {
+        #     "class": "agents.CSE3210.agent67.agent67.Agent67",
+        # },
+        # {
+        #     "class": "agents.CSE3210.agent68.agent68.Agent68",
+        # },
     ],
     "profile_sets": [
         ["domains/domain00/profileA.json", "domains/domain00/profileB.json"],

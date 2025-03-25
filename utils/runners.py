@@ -74,6 +74,7 @@ def run_session(settings) -> Tuple[dict, dict]:
 
     # file path to uri
     profiles_uri = [f"file:{x}" for x in profiles]
+    print(f"profiles: {profiles_uri}")
 
 
 
