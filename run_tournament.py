@@ -22,29 +22,34 @@ tournament_settings = {
         #     "parameters": {"storage_dir": "agent_storage/TemplateAgent"},
         # },
         {
-            "class": "agents.group09_agent.Group09_Agent.Group09_Agent",
-            "parameters": {"storage_dir": "agent_storage/Group09_Agent"},
+            "class": "agents.group09_agent.Group09_Agent.Group09Agent",
+             "parameters": {
+                "storage_dir": "agent_storage/Group09Agent",
+                "results_dir": str(RESULTS_DIR),
+            },
         },
         {
             "class": "agents.boulware_agent.boulware_agent.BoulwareAgent",
-            "parameters": {"storage_dir": "agent_storage/BoulwareAgent"},
+            "parameters": {"storage_dir": "agent_storage/BoulwareAgent",
+                           "results_dir": str(RESULTS_DIR),},
         },
         {
             "class": "agents.conceder_agent.conceder_agent.ConcederAgent",
-            "parameters": {"storage_dir": "agent_storage/ConcederAgent"},
+            "parameters": {"storage_dir": "agent_storage/ConcederAgent",
+                           "results_dir": str(RESULTS_DIR),},
         },
-        {
-            "class": "agents.hardliner_agent.hardliner_agent.HardlinerAgent",
-        },
-        {
-            "class": "agents.linear_agent.linear_agent.LinearAgent",
-        },
-        {
-            "class": "agents.random_agent.random_agent.RandomAgent",
-        },
-        {
-            "class": "agents.stupid_agent.stupid_agent.StupidAgent",
-        },
+        # {
+        #     "class": "agents.hardliner_agent.hardliner_agent.HardlinerAgent",
+        # },
+        # {
+        #     "class": "agents.linear_agent.linear_agent.LinearAgent",
+        # },
+        # {
+        #     "class": "agents.random_agent.random_agent.RandomAgent",
+        # },
+        # {
+        #     "class": "agents.stupid_agent.stupid_agent.StupidAgent",
+        # },
         # {
         #     "class": "agents.CSE3210.agent2.agent2.Agent2",
         # },

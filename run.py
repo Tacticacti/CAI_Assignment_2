@@ -7,7 +7,7 @@ from pathlib import Path
 from agents.group09_agent.utils.plot_pareto_trace import PlotParetoTrace
 from utils.plot_trace import plot_trace
 from utils.runners import run_session
-from utils.runners import compute_pareto_frontier
+
 
 RESULTS_DIR = Path("results", time.strftime('%Y%m%d-%H%M%S'))
 
@@ -33,14 +33,14 @@ settings = {
             "parameters": {"storage_dir": "agent_storage/BoulwareAgent"},
         },
         {
-            "class": "agents.group09_agent.Group09_Agent.Group09_Agent",
+            "class": "agents.group09_agent.Group09_Agent.Group09Agent",
             "parameters": {
-                "storage_dir": "agent_storage/Group09_Agent",
-                "pareto_csv": str(pareto_csv)
+                "storage_dir": "agent_storage/Group09Agent",
+                "results_dir": str(RESULTS_DIR),
             },
         },
     ],
-    "profiles": [str(domain_path / profileA), str(domain_path / profileB)],
+    "profiles": ["domains/domain00/profileA.json", "domains/domain00/profileB.json"],
     "deadline_time_ms": 10000,
 }
 
@@ -57,9 +57,6 @@ with open(RESULTS_DIR.joinpath("session_results_trace.json"), "w", encoding="utf
     f.write(json.dumps(session_results_trace, indent=2))
 with open(RESULTS_DIR.joinpath("session_results_summary.json"), "w", encoding="utf-8") as f:
     f.write(json.dumps(session_results_summary, indent=2))
-
-
-
 
 
 # Extract agent names dynamically
@@ -112,6 +109,7 @@ agent2_bids = np.array(agent2_bids)
 
 
 plotter = PlotParetoTrace(
+    title = 'True Utility-Based Negotiation Bids with Pareto Efficiency Visualization',
     agent1_name=agent1_name,
     agent2_name=agent2_name,
     pareto_csv_path=pareto_csv,

@@ -9,9 +9,6 @@ import pandas as pd
 from geniusweb.profile.utilityspace.LinearAdditiveUtilitySpace import (
     LinearAdditiveUtilitySpace,
 )
-from geniusweb.profileconnection.ProfileConnectionFactory import (
-    ProfileConnectionFactory,
-)
 from geniusweb.protocol.NegoSettings import NegoSettings
 from geniusweb.protocol.session.saop.SAOPState import SAOPState
 from geniusweb.simplerunner.ClassPathConnectionFactory import ClassPathConnectionFactory
@@ -19,39 +16,16 @@ from geniusweb.simplerunner.NegoRunner import StdOutReporter
 from geniusweb.simplerunner.Runner import Runner
 from pyson.ObjectMapper import ObjectMapper
 from uri.uri import URI
-from geniusweb.bidspace.pareto.ParetoLinearAdditive import ParetoLinearAdditive
-from geniusweb.issuevalue.Bid import Bid
-from geniusweb.party.DefaultParty import DefaultParty
-from geniusweb.profile.utilityspace.LinearAdditive import LinearAdditive
+
 from geniusweb.profileconnection.ProfileConnectionFactory import ProfileConnectionFactory
-from geniusweb.profileconnection.ProfileInterface import ProfileInterface
+
 from collections import defaultdict
-from typing import List, cast, Set
+
 from utils.ask_proceed import ask_proceed
-import plotly.graph_objects as go
 
 
-def compute_pareto_frontier(settings) -> List[Tuple[float, float]]:
-    profile_setting = settings["profiles"]
-    assert isinstance(profile_setting, list) and len(profile_setting) == 2
-    profiles = dict()
 
-    profiles_uris = [f"file:{x}" for x in profile_setting]
-    for profile_url in profiles_uris:
-        profile_int: ProfileInterface = ProfileConnectionFactory.create(
-            URI(profile_url), DefaultParty.getReporter
-        )
-        profile: LinearAdditive = cast(LinearAdditive, profile_int.getProfile())
-        profiles[profile_url] = profile
 
-    pareto = ParetoLinearAdditive(list(profiles.values()))
-    pareto_bids: Set[Bid] = pareto.getPoints()
-
-    frontier_points = []
-    for bid in pareto_bids:
-        utils = [float(profile.getUtility(bid)) for profile in profiles.values()]
-        frontier_points.append(tuple(utils))  # (u1, u2)
-    return frontier_points
 
 
 def run_session(settings) -> Tuple[dict, dict]:
@@ -65,17 +39,25 @@ def run_session(settings) -> Tuple[dict, dict]:
     assert isinstance(deadline_time_ms, int) and deadline_time_ms > 0
     assert all(["class" in agent for agent in agents])
 
+    # Calculate pareto_csv path dynamically
+    profileA_name = Path(profiles[0]).stem
+    profileB_name = Path(profiles[1]).stem
+    domain_path = Path(profiles[0]).parent
+    pareto_csv = domain_path / f"pareto_{profileA_name}_{profileB_name}.csv"
+
+    # Ensure pareto_csv is injected into agent parameters
     for agent in agents:
-        if "parameters" in agent:
-            if "storage_dir" in agent["parameters"]:
-                storage_dir = Path(agent["parameters"]["storage_dir"])
-                if not storage_dir.exists():
-                    storage_dir.mkdir(parents=True)
+        if "parameters" not in agent:
+            agent["parameters"] = {}
+        agent["parameters"]["pareto_csv"] = str(pareto_csv)
+
+        if "storage_dir" in agent["parameters"]:
+            storage_dir = Path(agent["parameters"]["storage_dir"])
+            if not storage_dir.exists():
+                storage_dir.mkdir(parents=True)
 
     # file path to uri
     profiles_uri = [f"file:{x}" for x in profiles]
-    print(f"profiles: {profiles_uri}")
-
 
 
     # create full settings dictionary that geniusweb requires
@@ -159,8 +141,22 @@ def run_tournament(tournament_settings: dict) -> Tuple[list, list]:
     for profiles in profile_sets:
         # quick an dirty check
         assert isinstance(profiles, list) and len(profiles) == 2
+        # Extract profile names for pareto_csv path
+        profileA_name = Path(profiles[0]).stem
+        profileB_name = Path(profiles[1]).stem
+        domain_path = Path(profiles[0]).parent
+        pareto_csv = domain_path / f"pareto_{profileA_name}_{profileB_name}.csv"
+
+
         for agent_duo in permutations(agents, 2):
             # create session settings dict
+            # Inject pareto_csv into both agents (if they use it)
+            # Deep copy to avoid mutating original agent dicts
+            agent1 = dict(agent_duo[0])
+            agent2 = dict(agent_duo[1])
+            for agent in [agent1, agent2]:
+                if "parameters" in agent:
+                    agent["parameters"]["pareto_csv"] = str(pareto_csv)
             settings = {
                 "agents": list(agent_duo),
                 "profiles": profiles,
@@ -168,7 +164,7 @@ def run_tournament(tournament_settings: dict) -> Tuple[list, list]:
             }
 
             # run a single negotiation session
-            _, session_results_summary = run_session(settings)
+            results_trace, session_results_summary = run_session(settings)
 
             # assemble results
             tournament_steps.append(settings)

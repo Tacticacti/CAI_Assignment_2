@@ -7,13 +7,14 @@ from pathlib import Path
 
 
 class PlotParetoTrace:
-    def __init__(self, agent1_name, agent2_name, pareto_csv_path: Path, agent1_bids, agent2_bids, accepted_bid=None):
+    def __init__(self, agent1_name, agent2_name, pareto_csv_path: Path, agent1_bids, agent2_bids, accepted_bid=None, title='Negotiation Bids with Estimated Opponent Utilities and Pareto Frontier Analysis'):
         self.agent1_name = agent1_name
         self.agent2_name = agent2_name
         self.pareto_points = self._load_pareto_from_csv(pareto_csv_path)
         self.agent1_bids = np.array(agent1_bids)
         self.agent2_bids = np.array(agent2_bids)
         self.accepted_bid = accepted_bid
+        self.title = title
         self.fig = go.Figure()
 
     def _load_pareto_from_csv(self, path: Path):
@@ -65,12 +66,8 @@ class PlotParetoTrace:
         return self.fig
 
     def _plot_agreement(self):
-        def euclidean_distance(p1, p2):
-            return np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
-
-        distances = [euclidean_distance(self.accepted_bid, p) for p in self.pareto_points]
-        min_distance = min(distances)
-        closest_pareto = self.pareto_points[np.argmin(distances)]
+        min_distance, closest_pareto = self._compute_min_pareto_distance()
+        # Add legend entry for distance
 
         self.fig.add_trace(go.Scatter(
             x=[closest_pareto[0]], y=[closest_pareto[1]],
@@ -83,18 +80,19 @@ class PlotParetoTrace:
         self.fig.add_trace(go.Scatter(
             x=[self.accepted_bid[0], closest_pareto[0]],
             y=[self.accepted_bid[1], closest_pareto[1]],
-            mode='lines', line=dict(color='gray', dash='dot'), showlegend=False
+            name=f"Distance to Pareto: {min_distance:.4f}",
+            mode='lines', line=dict(color='gray', dash='dot')
         ))
 
         self.fig.add_trace(go.Scatter(
             x=[self.accepted_bid[0]], y=[self.accepted_bid[1]],
-            mode='markers', name='Final Agreement',
+            mode='markers', name=f'Final Agreement',
             marker=dict(symbol='hexagon', color='gold', size=14, opacity=0.9),
             hovertext=[f'Accepted ({self.agent1_name}): {self.accepted_bid[0]:.2f}, ({self.agent2_name}): {self.accepted_bid[1]:.2f}'],
             hoverinfo='text'
         ))
 
-    def compute_min_pareto_distance(self):
+    def _compute_min_pareto_distance(self):
         def euclidean_distance(p1, p2):
             return np.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
 
@@ -105,7 +103,7 @@ class PlotParetoTrace:
 
     def _style(self):
         self.fig.update_layout(
-            title='Negotiation Bids and Pareto Front Analysis',
+            title=self.title,
             xaxis_title=f'Utility for {self.agent1_name} (Agent 1)',
             yaxis_title=f'Utility for {self.agent2_name} (Agent 2)',
             legend_title="Bid Types and Outcomes",
