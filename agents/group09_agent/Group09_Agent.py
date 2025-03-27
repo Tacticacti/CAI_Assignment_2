@@ -105,9 +105,6 @@ class Group09Agent(DefaultParty):
             self.storage_dir = self.parameters.get("storage_dir")
             self.result_dir = self.parameters.get("results_dir")
 
-
-
-
             # the profile contains the preferences of the agent over the domain
             profile_connection = ProfileConnectionFactory.create(
                 data.getProfile().getURI(), self.getReporter()
@@ -239,6 +236,7 @@ class Group09Agent(DefaultParty):
             #self.visualize_pareto_front()
             #print(len(self.bid_history))
 
+
     ###########################################################################################
     ################################## Helper methods below ##################################
     ###########################################################################################
@@ -309,6 +307,7 @@ class Group09Agent(DefaultParty):
             "utility_self": utility_self,
             "utility_opponent": utility_opponent
         })
+
 
     def calculate_progress(self) -> float:
         """Calculates the current progress of the negotiation.
