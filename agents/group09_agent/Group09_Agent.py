@@ -32,27 +32,28 @@ from .utils.acceptance_condition import AcceptanceCondition
 from .utils.plot_pareto_trace import PlotParetoTrace
 from pathlib import Path
 
+
 class Group09Agent(DefaultParty):
     """
     Group09Agent for the ANL 2025 negotiation assignment.
 
     Strategy Overview:
     - Hybrid of ABMP (time-dependent concession) and TradeOff (opponent-aware bidding).
-    - Early negotiation behavior focuses on self-utility (Boulware style).
-    - As time progresses, the agent considers opponent preferences via an opponent model.
-    - Acceptance threshold becomes more lenient over time.
-    - Bid selection balances self utility and predicted opponent utility.
+    - Starts with a Boulware-like approach focused on self-utility.
+    - Gradually incorporates opponent modeling as negotiation progresses.
+    - Dynamically adjusts acceptance threshold and bid selection.
 
-    Modules Used:
-    - OpponentModel (frequency + Bayesian modeling of opponent preferences)
-    - AcceptanceCondition (configurable acceptance logic)
-    - PlotParetoTrace (visualizing bid traces and Pareto frontier)
+    Components:
+    - OpponentModel: Frequency-based & Bayesian modeling.
+    - AcceptanceCondition: Strategy to accept offers based on utility and time.
+    - PlotParetoTrace: (Optional) Visualize bid trace vs. Pareto frontier.
     """
 
     def __init__(self):
         super().__init__()
         self.logger: ReportToLogger = self.getReporter()
 
+        # Core negotiation variables
         self.domain: Domain = None
         self.parameters: Parameters = None
         self.profile: LinearAdditiveUtilitySpace = None
@@ -63,23 +64,21 @@ class Group09Agent(DefaultParty):
         self.storage_dir: str = None
         self.result_dir: str = None
 
+        # Bid tracking
         self.last_received_bid: Bid = None
-        self.opponent_model: OpponentModel = None
-        self.logger.log(logging.INFO, "party is initialized")
-
-
-        # Acceptance condition
-        # Choose MAX_W or AVG_W by setting `use_max_w=True` or `False`
-        self.T = 0.98 # Time (0 - 1) after which acceptance condition becomes more lenient
-        self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=False)
+        self.last_sent_bid: Bid = None
         self.bid_history = []
 
-        self.last_sent_bid: Bid = None
+        # Opponent modeling and acceptance
+        self.opponent_model: OpponentModel = None
+        self.T = 0.98  # Time after which acceptance becomes more lenient
+        self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=False)
 
-        self.beta = 0.3  # Concession rate
-        self.mu = 0.6 # Reserve
+        # Strategy parameters
+        self.beta = 0.3  # Concession factor for ABMP
+        self.mu = 0.6  # Minimum acceptable utility (reservation level)
 
-
+        self.logger.log(logging.INFO, "party is initialized")
 
     def notifyChange(self, data: Inform):
         """MUST BE IMPLEMENTED
@@ -339,11 +338,12 @@ class Group09Agent(DefaultParty):
 
     def find_bid(self) -> Bid:
         """
-        Finds and returns the best bid based on:
-        1. Target utility (ABMP baseline)
-        2. Candidate filtering within tolerance
-        3. TradeOff scoring (hybrid of own + opponent utility)
+        Chooses a bid to offer based on hybrid strategy:
+        1. Select bids around target utility (ABMP).
+        2. Score candidates using a TradeOff heuristic (iso-utility band).
+        3. Fallback to best self-utility bid if no info.
         """
+
         all_bids = AllBidsList(self.domain)
         target_utility = self.get_target_utility()
         tolerance = 0.05
@@ -373,13 +373,15 @@ class Group09Agent(DefaultParty):
 
 
     def score_bid(self, bid: Bid) -> float:
+
         """
-        Scores a bid based on a trade-off between self and opponent utility.
-        Weighting dynamically shifts from self-focus (ABMP) to joint utility (TradeOff).
+        Computes a heuristic score for a bid using a weighted combination
+        of self-utility and predicted opponent utility.
 
         Returns:
-            float: heuristic score for ranking bids
+            float: score for ranking purposes.
         """
+
         progress = self.calculate_progress()
         alpha = self.dynamic_alpha()
 
@@ -392,10 +394,11 @@ class Group09Agent(DefaultParty):
 
     def dynamic_alpha(self) -> float:
         """
-        Returns a time-dependent weight alpha that prioritizes:
-        - Self-utility early in the negotiation
-        - Opponent utility later
-        Starts at 1.0 (fully selfish), decreases to 0.3 as deadline approaches.
+        Calculates a time-dependent alpha value that governs the weight
+        between self-interest and opponent interest in bid scoring.
+
+        Returns:
+            float: alpha in [0.3, 1.0]
         """
         progress = self.calculate_progress()
         return max(0.3, 1.0 - self.calculate_progress())

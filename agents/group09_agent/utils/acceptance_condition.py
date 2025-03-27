@@ -2,7 +2,13 @@ import logging
 
 class AcceptanceCondition:
     """
-    Defines the conditions under which a negotiation agent will accept a bid.
+    Defines the acceptance strategy for the negotiation agent using a combination of:
+    - AC_next: Accept if the current bid is better than the predicted next bid.
+    - AC_time: Accept if we are past a specified time threshold.
+    - AC_const: Accept if the bid is better than the average or max so far.
+
+    Decision Rule:
+        Accept if (AC_next) OR (AC_time AND AC_const)
     """
 
     def __init__(self, agent, T, use_average=True):
@@ -10,26 +16,27 @@ class AcceptanceCondition:
         Initializes the acceptance condition strategy.
 
         Args:
-            agent (DefaultParty): The negotiation agent instance.
-            T (float): The initial threshold for time-based acceptance.
-            use_average (bool): Use average utility instead of max utility.
+            agent (DefaultParty): Reference to the negotiation agent.
+            T (float): Time threshold (0 ≤ T ≤ 1) after which the agent becomes more lenient.
+            use_average (bool): If True, use average utility as threshold (AC_const);
+                                otherwise, use max utility.
         """
         self.agent = agent
         self.T = T
         self.use_average = use_average
+
         self.max_utility_received = 0.0
         self.total_utility_received = 0.0
         self.number_of_bids_received = 0
-        self.last_predicted_bid_utility = None  # Cache the predicted bid
 
-
+        self.last_predicted_bid_utility = None  # Cache of utility for next potential offer
 
     def update_received_bid_utility(self, bid_utility):
         """
-        Updates utility statistics for received bids.
+        Tracks statistics on received bid utilities.
 
         Args:
-            bid_utility (float): The utility of the received bid.
+            bid_utility (float): Utility of the newly received bid.
         """
         self.max_utility_received = max(self.max_utility_received, bid_utility)
         self.total_utility_received += bid_utility
@@ -37,20 +44,23 @@ class AcceptanceCondition:
 
     def get_acceptance_threshold(self):
         """
-        Returns the threshold utility for acceptance.
+        Computes the current utility threshold for acceptance.
 
         Returns:
-            float: The dynamic threshold utility.
+            float: Either average or max utility of received bids.
         """
         if self.use_average and self.number_of_bids_received > 0:
             return self.total_utility_received / self.number_of_bids_received
         return self.max_utility_received
 
-
-
     def should_accept(self, bid):
         """
-        Determines whether to accept a bid using AC_combi(T, AVG).
+        Determines whether to accept the current offer.
+
+        Combines three conditions:
+        - AC_next: Is current bid better than predicted next bid?
+        - AC_time: Are we past time threshold T?
+        - AC_const: Is bid above average (or max) received utility?
 
         Args:
             bid (Bid): The bid to evaluate.
@@ -59,39 +69,37 @@ class AcceptanceCondition:
             bool: True if the bid should be accepted, False otherwise.
         """
         if bid is None:
-            return False  # Cannot accept if there is no bid.
+            return False
 
-        # Calculate the current negotiation progress (0 to 1)
+        # 1. Evaluate time progress (0 to 1)
         progress = self.agent.calculate_progress()
 
-        # Utility of the received bid
+        # 2. Evaluate bid utility
         bid_utility = self.agent.evaluate_bid(bid)
-
-        # update bid utility tracking
         self.update_received_bid_utility(bid_utility)
 
+        # 3. AC_time: Check if negotiation is near the end
+        time_condition_met = progress > self.T
 
-        # AC_time: Time-based acceptance
-        time_condition_met = progress > self.T  # Only activate in the last 1% of time
-
-        # AC_const: Accept if bid utility >= average(MAX) utility
+        # 4. AC_const: Is the bid utility above our dynamic threshold?
         avg_threshold = self.get_acceptance_threshold()
         const_condition_met = bid_utility >= avg_threshold
 
-
-        # AC_next: Predict the next bid's utility (cached)
+        # 5. AC_next: Is the bid better than the predicted next offer?
         if self.last_predicted_bid_utility is None:
-            self.last_predicted_bid_utility = self.agent.evaluate_bid(self.agent.find_bid())  # Cache the prediction
+            self.last_predicted_bid_utility = self.agent.evaluate_bid(self.agent.find_bid())
         next_condition_met = bid_utility >= self.last_predicted_bid_utility
 
-
-        # Final Decision: AC_next OR (AC_time AND AC_const)
+        # 6. Final decision
         accept_decision = next_condition_met or (time_condition_met and const_condition_met)
 
-        # Log the decision
-        self.agent.logger.log(logging.INFO, f"Acceptance check: progress={progress:.2f}, "
-                                            f"bid utility={bid_utility:.2f}, AVG_threshold={avg_threshold:.2f}, "
-                                            f"AC_next={next_condition_met}, AC_time={time_condition_met}, "
-                                            f"AC_const={const_condition_met} → Decision: {accept_decision}")
+        # 7. Logging
+        self.agent.logger.log(logging.INFO,
+            f"Acceptance check: progress={progress:.2f}, "
+            f"bid utility={bid_utility:.2f}, "
+            f"{'AVG' if self.use_average else 'MAX'}_threshold={avg_threshold:.2f}, "
+            f"AC_next={next_condition_met}, AC_time={time_condition_met}, "
+            f"AC_const={const_condition_met} → Decision: {accept_decision}"
+        )
 
         return accept_decision
