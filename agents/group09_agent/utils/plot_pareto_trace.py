@@ -111,24 +111,25 @@ class PlotParetoTrace:
             hovertext=[f'Pareto ({self.agent1_full}): {u1:.2f}, ({self.agent2_full}): {u2:.2f}' for u1, u2 in self.pareto_points],
             hoverinfo='text'
         ))
+        if self.agent1_bids.size > 0:
 
-        # Agent 1 bids
-        self.fig.add_trace(go.Scatter(
-            x=self.agent1_bids[:, 0], y=self.agent1_bids[:, 1],
-            mode='markers', name=f'{self.agent1_full} Bids',
-            marker=dict(symbol='circle', color='blue', size=8, opacity=0.3),
-            hovertext=[f'{self.agent1_full}: {u1:.2f}, {self.agent2_full}: {u2:.2f}' for u1, u2 in self.agent1_bids],
-            hoverinfo='text'
-        ))
-
-        # Agent 2 bids
-        self.fig.add_trace(go.Scatter(
-            x=self.agent2_bids[:, 0], y=self.agent2_bids[:, 1],
-            mode='markers', name=f'{self.agent2_full} Bids',
-            marker=dict(symbol='square', color='green', size=8, opacity=0.3),
-            hovertext=[f'{self.agent1_full}: {u1:.2f}, {self.agent2_full}: {u2:.2f}' for u1, u2 in self.agent2_bids],
-            hoverinfo='text'
-        ))
+            # Agent 1 bids
+            self.fig.add_trace(go.Scatter(
+                x=self.agent1_bids[:, 0], y=self.agent1_bids[:, 1],
+                mode='markers', name=f'{self.agent1_full} Bids',
+                marker=dict(symbol='circle', color='blue', size=8, opacity=0.3),
+                hovertext=[f'{self.agent1_full}: {u1:.2f}, {self.agent2_full}: {u2:.2f}' for u1, u2 in self.agent1_bids],
+                hoverinfo='text'
+            ))
+        if self.agent2_bids.size > 0:
+            # Agent 2 bids
+            self.fig.add_trace(go.Scatter(
+                x=self.agent2_bids[:, 0], y=self.agent2_bids[:, 1],
+                mode='markers', name=f'{self.agent2_full} Bids',
+                marker=dict(symbol='square', color='green', size=8, opacity=0.3),
+                hovertext=[f'{self.agent1_full}: {u1:.2f}, {self.agent2_full}: {u2:.2f}' for u1, u2 in self.agent2_bids],
+                hoverinfo='text'
+            ))
 
         if self.accepted_bid:
             self._plot_agreement()

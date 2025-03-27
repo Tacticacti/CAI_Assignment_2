@@ -29,7 +29,6 @@ from tudelft_utilities_logging.ReportToLogger import ReportToLogger
 
 from .utils.opponent_model import OpponentModel
 from .utils.acceptance_condition import AcceptanceCondition
-import plotly.graph_objects as go
 from .utils.plot_pareto_trace import PlotParetoTrace
 from pathlib import Path
 
@@ -78,7 +77,7 @@ class Group09Agent(DefaultParty):
         self.last_sent_bid: Bid = None
 
         self.beta = 0.3  # Concession rate
-        self.mu = 0.8 # Reserve
+        self.mu = 0.6 # Reserve
 
 
 
@@ -116,7 +115,7 @@ class Group09Agent(DefaultParty):
             self.profile = profile_connection.getProfile()
             self.domain = self.profile.getDomain()
 
-            profile_connection.close()
+            # profile_connection.close()
 
         # ActionDone informs you of an action (an offer or an accept)
         # that is performed by one of the agents (including yourself).
@@ -161,6 +160,7 @@ class Group09Agent(DefaultParty):
             set(["SAOP"]),
             set(["geniusweb.profile.utilityspace.LinearAdditive"]),
         )
+
 
     def send_action(self, action: Action):
         """Sends an action to the opponent(s)
@@ -215,7 +215,8 @@ class Group09Agent(DefaultParty):
         # check if the last received offer is good enough
         if self.last_received_bid and self.acceptance_condition.should_accept(self.last_received_bid):
             self.logger.log(logging.INFO, "Decided to accept the last received offer")
-            self.send_action(Accept(self.me, self.last_received_bid))
+            action = Accept(self.me, self.last_received_bid)
+
         else:
             # if not, find a bid to propose as counter offer
             bid = self.find_bid()
@@ -224,7 +225,8 @@ class Group09Agent(DefaultParty):
             # Log the bid before sending it
             self.log_bid(bid, str(self.me), "Offer")  # Log using the agent's own ID
             self.logger.log(logging.INFO, f"Generated new bid to offer: {bid}")
-            self.send_action(Offer(self.me, bid))
+            action = Offer(self.me, bid)
+        self.send_action(action)
 
     def save_data(self):
         """This method is called after the negotiation is finished. It can be used to store data
@@ -240,58 +242,58 @@ class Group09Agent(DefaultParty):
     ###########################################################################################
     ################################## Helper methods below ##################################
     ###########################################################################################
-    def visualize_pareto_front(self):
-        """
-        Uses PlotParetoTrace to visualize bid history and the Pareto frontier,
-        ensuring the initiator is always plotted on the x-axis.
-        """
-        pareto_csv_path = Path(self.parameters.get("pareto_csv"))
-
-        # Separate bids
-        self_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if b['actor'] == str(self.me)]
-        other_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if
-                      b['actor'] != str(self.me)]
-        accepted_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if b['type'] == "Accept"]
-
-        accepted_bid = accepted_bids[-1] if accepted_bids else None
-        # print(str(self.me))
-        # print(str(self.other))
-
-        self_name = str(self.me).rsplit("_", 2)[0]
-        other_name = str(self.other).rsplit("_", 2)[0]
-
-        # Get position suffixes
-        self_position = int(str(self.me).rsplit("_", 1)[-1])
-
-        # Determine who is Agent 1 (odd = agent 1)
-        if self_position % 2 == 1:
-            agent1_name = self_name
-            agent2_name = other_name
-            agent1_bids = self_bids
-            agent2_bids = other_bids
-            accepted_bid_remapped = accepted_bid if accepted_bid else None
-        else:
-            agent1_name = other_name
-            agent2_name = self_name
-            agent1_bids = [(u_opp, u_self) for (u_self, u_opp) in other_bids]
-            agent2_bids = [(u_opp, u_self) for (u_self, u_opp) in self_bids]
-            accepted_bid_remapped = (accepted_bid[1], accepted_bid[0]) if accepted_bid else None
-
-        # Create and save plot
-        plotter = PlotParetoTrace(
-            agent1_name=agent1_name,
-            agent2_name=agent2_name,
-            pareto_csv_path=pareto_csv_path,
-            agent1_bids=agent1_bids,
-            agent2_bids=agent2_bids,
-            accepted_bid=accepted_bid_remapped,
-            title="Negotiation Bids with Estimated Opponent Utility and Pareto Frontier"
-        )
-
-        fig = plotter.plot()
-        os.makedirs(self.result_dir, exist_ok=True)
-        filename = f"pareto_trace_plot_{agent1_name}(initiator)_vs_{agent2_name}.html"
-        fig.write_html(Path(self.result_dir) / filename)
+    # def visualize_pareto_front(self):
+    #     """
+    #     Uses PlotParetoTrace to visualize bid history and the Pareto frontier,
+    #     ensuring the initiator is always plotted on the x-axis.
+    #     """
+    #     pareto_csv_path = Path(self.parameters.get("pareto_csv"))
+    #
+    #     # Separate bids
+    #     self_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if b['actor'] == str(self.me)]
+    #     other_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if
+    #                   b['actor'] != str(self.me)]
+    #     accepted_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if b['type'] == "Accept"]
+    #
+    #     accepted_bid = accepted_bids[-1] if accepted_bids else None
+    #     # print(str(self.me))
+    #     # print(str(self.other))
+    #
+    #     self_name = str(self.me).rsplit("_", 2)[0]
+    #     other_name = str(self.other).rsplit("_", 2)[0]
+    #
+    #     # Get position suffixes
+    #     self_position = int(str(self.me).rsplit("_", 1)[-1])
+    #
+    #     # Determine who is Agent 1 (odd = agent 1)
+    #     if self_position % 2 == 1:
+    #         agent1_name = self_name
+    #         agent2_name = other_name
+    #         agent1_bids = self_bids
+    #         agent2_bids = other_bids
+    #         accepted_bid_remapped = accepted_bid if accepted_bid else None
+    #     else:
+    #         agent1_name = other_name
+    #         agent2_name = self_name
+    #         agent1_bids = [(u_opp, u_self) for (u_self, u_opp) in other_bids]
+    #         agent2_bids = [(u_opp, u_self) for (u_self, u_opp) in self_bids]
+    #         accepted_bid_remapped = (accepted_bid[1], accepted_bid[0]) if accepted_bid else None
+    #
+    #     # Create and save plot
+    #     plotter = PlotParetoTrace(
+    #         agent1_name=agent1_name,
+    #         agent2_name=agent2_name,
+    #         pareto_csv_path=pareto_csv_path,
+    #         agent1_bids=agent1_bids,
+    #         agent2_bids=agent2_bids,
+    #         accepted_bid=accepted_bid_remapped,
+    #         title="Negotiation Bids with Estimated Opponent Utility and Pareto Frontier"
+    #     )
+    #
+    #     fig = plotter.plot()
+    #     os.makedirs(self.result_dir, exist_ok=True)
+    #     filename = f"pareto_trace_plot_{agent1_name}(initiator)_vs_{agent2_name}.html"
+    #     fig.write_html(Path(self.result_dir) / filename)
 
 
     def log_bid(self, bid, actor, actionType):
@@ -370,22 +372,6 @@ class Group09Agent(DefaultParty):
     ################################## Example methods below ##################################
     ###########################################################################################
 
-    def find_bid2(self) -> Bid:
-        # compose a list of all possible bids
-        domain = self.profile.getDomain()
-        all_bids = AllBidsList(domain)
-
-        best_bid_score = 0.0
-        best_bid = None
-
-        # take 500 attempts to find a bid according to a heuristic score
-        for _ in range(500):
-            bid = all_bids.get(randint(0, all_bids.size() - 1))
-            bid_score = self.score_bid(bid)
-            if bid_score > best_bid_score:
-                best_bid_score, best_bid = bid_score, bid
-
-        return best_bid
 
     def score_bid(self, bid: Bid) -> float:
         """

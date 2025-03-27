@@ -29,11 +29,11 @@ tournament_settings = {
                 "results_dir": str(RESULTS_DIR),
             },
         },
-        {
-            "class": "agents.boulware_agent.boulware_agent.BoulwareAgent",
-            "parameters": {"storage_dir": "agent_storage/BoulwareAgent",
-                           "results_dir": str(RESULTS_DIR),},
-        },
+        # {
+        #     "class": "agents.boulware_agent.boulware_agent.BoulwareAgent",
+        #     "parameters": {"storage_dir": "agent_storage/BoulwareAgent",
+        #                    "results_dir": str(RESULTS_DIR),},
+        # },
         {
             "class": "agents.conceder_agent.conceder_agent.ConcederAgent",
             "parameters": {"storage_dir": "agent_storage/ConcederAgent",
@@ -51,20 +51,20 @@ tournament_settings = {
                 "results_dir": str(RESULTS_DIR),
             },
         },
-        {
-            "class": "agents.random_agent.random_agent.RandomAgent",
-"parameters": {
-                "storage_dir": "agent_storage/LinearAgent",
-                "results_dir": str(RESULTS_DIR),
-            },
-        },
-        {
-            "class": "agents.stupid_agent.stupid_agent.StupidAgent",
-"parameters": {
-                "storage_dir": "agent_storage/LinearAgent",
-                "results_dir": str(RESULTS_DIR),
-            },
-        },
+#         {
+#             "class": "agents.random_agent.random_agent.RandomAgent",
+# "parameters": {
+#                 "storage_dir": "agent_storage/LinearAgent",
+#                 "results_dir": str(RESULTS_DIR),
+#             },
+#         },
+#         {
+#             "class": "agents.stupid_agent.stupid_agent.StupidAgent",
+# "parameters": {
+#                 "storage_dir": "agent_storage/LinearAgent",
+#                 "results_dir": str(RESULTS_DIR),
+#             },
+#         },
         # {
         #     "class": "agents.CSE3210.agent2.agent2.Agent2",
         # },
@@ -146,7 +146,7 @@ tournament_settings = {
         # },
     ],
     "profile_sets": [
-        ["domains/domain00/profileA.json", "domains/domain00/profileB.json"],
+        #["domains/domain00/profileA.json", "domains/domain00/profileB.json"],
         ["domains/domain01/profileA.json", "domains/domain01/profileB.json"],
 ["domains/domain02/profileA.json", "domains/domain02/profileB.json"],
 ["domains/domain03/profileA.json", "domains/domain03/profileB.json"],

@@ -291,7 +291,12 @@ def process_tournament_results(tournament_results):
         for agent, stats in agent_result_raw.items():
             num_session = len(stats["utility"])
             for desc, stat in stats.items():
-                stat_average = sum(stat) / num_session
+                # Filter out None values
+                valid_stat = [s for s in stat if s is not None]
+                if valid_stat:
+                    stat_average = sum(valid_stat) / len(valid_stat)
+                else:
+                    stat_average = None  # or 0.0, depending on what you prefer
                 tournament_results_summary[agent][f"avg_{desc}"] = stat_average
             tournament_results_summary[agent]["count"] = num_session
 
