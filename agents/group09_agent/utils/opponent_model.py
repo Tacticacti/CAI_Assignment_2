@@ -11,6 +11,7 @@ class OpponentModel:
         self.offers = []
         self.domain = domain
 
+
         self.issue_estimators = {
             i: IssueEstimator(v) for i, v in domain.getIssuesValues().items()
         }
@@ -72,6 +73,7 @@ class IssueEstimator:
         self.change_count = 0
         self.last_value = None
         self.issue_changes = 0  # Track changes in issue values
+        self.alpha = 0.3
 
         # Initialize prior probabilities uniformly
         self.prior_probabilities = {value: 1 / self.num_values for value in value_set}
@@ -106,10 +108,17 @@ class IssueEstimator:
         self.bayesian_update(value)
 
     def get_value_utility(self, value: Value):
-        if value in self.value_trackers:
-            return self.value_trackers[value].utility
 
-        return 0
+        freq_utility = self.value_trackers[value].utility if value in self.value_trackers else 0
+        bayes_prob = self.prior_probabilities.get(value, 0)
+        combined_utility = self.alpha * freq_utility + (1 - self.alpha) * bayes_prob
+        return combined_utility
+    #
+    # def get_value_utility(self, value: Value):
+    #     if value in self.value_trackers:
+    #         return self.value_trackers[value].utility
+    #
+    #     return 0
 
     def bayesian_update(self, value: Value):
         # Likelihood of the observed value

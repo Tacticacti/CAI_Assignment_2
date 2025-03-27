@@ -50,7 +50,7 @@ class AcceptanceCondition:
 
     def should_accept(self, bid):
         """
-        Determines whether to accept a bid using AC_combi(0.99, AVG).
+        Determines whether to accept a bid using AC_combi(T, AVG).
 
         Args:
             bid (Bid): The bid to evaluate.

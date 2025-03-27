@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import time
 
+from agents.group09_agent.utils.plot_pareto_trace import PlotParetoTrace
 from utils.runners import run_tournament
 
 RESULTS_DIR = Path("results", time.strftime('%Y%m%d-%H%M%S'))
@@ -38,18 +39,32 @@ tournament_settings = {
             "parameters": {"storage_dir": "agent_storage/ConcederAgent",
                            "results_dir": str(RESULTS_DIR),},
         },
-        # {
-        #     "class": "agents.hardliner_agent.hardliner_agent.HardlinerAgent",
-        # },
-        # {
-        #     "class": "agents.linear_agent.linear_agent.LinearAgent",
-        # },
-        # {
-        #     "class": "agents.random_agent.random_agent.RandomAgent",
-        # },
-        # {
-        #     "class": "agents.stupid_agent.stupid_agent.StupidAgent",
-        # },
+        {
+            "class": "agents.hardliner_agent.hardliner_agent.HardlinerAgent",
+            "parameters": {"storage_dir": "agent_storage/HardlinerAgent",
+                           "results_dir": str(RESULTS_DIR), },
+        },
+        {
+            "class": "agents.linear_agent.linear_agent.LinearAgent",
+"parameters": {
+                "storage_dir": "agent_storage/LinearAgent",
+                "results_dir": str(RESULTS_DIR),
+            },
+        },
+        {
+            "class": "agents.random_agent.random_agent.RandomAgent",
+"parameters": {
+                "storage_dir": "agent_storage/LinearAgent",
+                "results_dir": str(RESULTS_DIR),
+            },
+        },
+        {
+            "class": "agents.stupid_agent.stupid_agent.StupidAgent",
+"parameters": {
+                "storage_dir": "agent_storage/LinearAgent",
+                "results_dir": str(RESULTS_DIR),
+            },
+        },
         # {
         #     "class": "agents.CSE3210.agent2.agent2.Agent2",
         # },
@@ -124,17 +139,25 @@ tournament_settings = {
         # },
         # {
         #     "class": "agents.CSE3210.agent68.agent68.Agent68",
+        #     "parameters": {
+        #         "storage_dir": "agent_storage/Agent68",
+        #         "results_dir": str(RESULTS_DIR),
+        #     },
         # },
     ],
     "profile_sets": [
         ["domains/domain00/profileA.json", "domains/domain00/profileB.json"],
         ["domains/domain01/profileA.json", "domains/domain01/profileB.json"],
+["domains/domain02/profileA.json", "domains/domain02/profileB.json"],
+["domains/domain03/profileA.json", "domains/domain03/profileB.json"],
     ],
     "deadline_time_ms": 10000,
 }
 
 # run a session and obtain results in dictionaries
 tournament_steps, tournament_results, tournament_results_summary = run_tournament(tournament_settings)
+
+
 
 # save the tournament settings for reference
 with open(RESULTS_DIR.joinpath("tournament_steps.json"), "w", encoding="utf-8") as f:

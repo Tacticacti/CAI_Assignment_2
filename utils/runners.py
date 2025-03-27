@@ -21,6 +21,7 @@ from geniusweb.profileconnection.ProfileConnectionFactory import ProfileConnecti
 
 from collections import defaultdict
 
+from agents.group09_agent.utils.plot_pareto_trace import PlotParetoTrace
 from utils.ask_proceed import ask_proceed
 
 
@@ -138,6 +139,7 @@ def run_tournament(tournament_settings: dict) -> Tuple[list, list]:
 
     tournament_results = []
     tournament_steps = []
+    count = 0
     for profiles in profile_sets:
         # quick an dirty check
         assert isinstance(profiles, list) and len(profiles) == 2
@@ -146,25 +148,36 @@ def run_tournament(tournament_settings: dict) -> Tuple[list, list]:
         profileB_name = Path(profiles[1]).stem
         domain_path = Path(profiles[0]).parent
         pareto_csv = domain_path / f"pareto_{profileA_name}_{profileB_name}.csv"
-
-
         for agent_duo in permutations(agents, 2):
-            # create session settings dict
-            # Inject pareto_csv into both agents (if they use it)
-            # Deep copy to avoid mutating original agent dicts
-            agent1 = dict(agent_duo[0])
-            agent2 = dict(agent_duo[1])
-            for agent in [agent1, agent2]:
+            for agent in agent_duo:
                 if "parameters" in agent:
                     agent["parameters"]["pareto_csv"] = str(pareto_csv)
+            # create session settings dict
             settings = {
                 "agents": list(agent_duo),
                 "profiles": profiles,
                 "deadline_time_ms": deadline_time_ms,
             }
 
+            count+=1
+
             # run a single negotiation session
-            results_trace, session_results_summary = run_session(settings)
+            session_results_trace, session_results_summary = run_session(settings)
+
+            plotter = PlotParetoTrace(
+                trace_data=session_results_trace,
+                summary_data=session_results_summary,
+                pareto_csv_path=pareto_csv
+            )
+
+            # Distance to Pareto
+            distance_to_pareto, _ = plotter.compute_min_pareto_distance()
+            session_results_summary["distance_to_pareto"] = distance_to_pareto
+
+
+            # Save plot
+            fig = plotter.plot()
+            fig.write_html(f"pareto_trace_{count}.html")
 
             # assemble results
             tournament_steps.append(settings)
@@ -267,19 +280,26 @@ def process_tournament_results(tournament_results):
                 agent_result_raw[agent_class]["num_offers"].append(
                     session_results["num_offers"]
                 )
+                # Collect distance to Pareto if available
+            if "distance_to_pareto" in session_results:
+                agent_result_raw[agent_class]["distance_to_pareto"].append(
+                    session_results["distance_to_pareto"]
+                )
+
             tournament_results_summary[agent_class][session_results["result"]] += 1
 
-    for agent, stats in agent_result_raw.items():
-        num_session = len(stats["utility"])
-        for desc, stat in stats.items():
-            stat_average = sum(stat) / num_session
-            tournament_results_summary[agent][f"avg_{desc}"] = stat_average
-        tournament_results_summary[agent]["count"] = num_session
+        for agent, stats in agent_result_raw.items():
+            num_session = len(stats["utility"])
+            for desc, stat in stats.items():
+                stat_average = sum(stat) / num_session
+                tournament_results_summary[agent][f"avg_{desc}"] = stat_average
+            tournament_results_summary[agent]["count"] = num_session
 
     column_order = [
         "avg_utility",
         "avg_nash_product",
         "avg_social_welfare",
+        "avg_distance_to_pareto",
         "avg_num_offers",
         "count",
         "agreement",

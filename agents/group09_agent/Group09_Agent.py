@@ -35,7 +35,19 @@ from pathlib import Path
 
 class Group09Agent(DefaultParty):
     """
-    Template of a Python geniusweb agent.
+    Group09Agent for the ANL 2025 negotiation assignment.
+
+    Strategy Overview:
+    - Hybrid of ABMP (time-dependent concession) and TradeOff (opponent-aware bidding).
+    - Early negotiation behavior focuses on self-utility (Boulware style).
+    - As time progresses, the agent considers opponent preferences via an opponent model.
+    - Acceptance threshold becomes more lenient over time.
+    - Bid selection balances self utility and predicted opponent utility.
+
+    Modules Used:
+    - OpponentModel (frequency + Bayesian modeling of opponent preferences)
+    - AcceptanceCondition (configurable acceptance logic)
+    - PlotParetoTrace (visualizing bid traces and Pareto frontier)
     """
 
     def __init__(self):
@@ -59,16 +71,14 @@ class Group09Agent(DefaultParty):
 
         # Acceptance condition
         # Choose MAX_W or AVG_W by setting `use_max_w=True` or `False`
-        self.T = 0.8 # Time (0 - 1) after which acceptance condition becomes more lenient
+        self.T = 0.98 # Time (0 - 1) after which acceptance condition becomes more lenient
         self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=False)
         self.bid_history = []
 
         self.last_sent_bid: Bid = None
 
-        self.beta = 0.1  # Concession rate
+        self.beta = 0.3  # Concession rate
         self.mu = 0.8 # Reserve
-
-
 
 
 
@@ -224,7 +234,8 @@ class Group09Agent(DefaultParty):
         data = "Data for learning (see README.md)"
         with open(f"{self.storage_dir}/data.md", "w") as f:
             f.write(data)
-            self.visualize_pareto_front()
+            #self.visualize_pareto_front()
+            #print(len(self.bid_history))
 
     ###########################################################################################
     ################################## Helper methods below ##################################
@@ -241,7 +252,10 @@ class Group09Agent(DefaultParty):
         other_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if
                       b['actor'] != str(self.me)]
         accepted_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if b['type'] == "Accept"]
+
         accepted_bid = accepted_bids[-1] if accepted_bids else None
+        # print(str(self.me))
+        # print(str(self.other))
 
         self_name = str(self.me).rsplit("_", 2)[0]
         other_name = str(self.other).rsplit("_", 2)[0]
@@ -305,50 +319,52 @@ class Group09Agent(DefaultParty):
 
 
     def evaluate_bid(self, bid: Bid) -> float:
+        """
+            Computes the utility of a bid for this agent based on its profile.
+            """
         score = self.profile.getUtility(bid)
         return float(score)
 
+    def get_target_utility(self):
+        """
+        Computes the target utility based on ABMP time-dependent concession.
+        """
+        progress = self.calculate_progress()  # t ∈ [0,1]
+        u_max = 1.0  # usually maximum utility is 1
 
-    def get_target_utility(self) -> float:
+        target = self.mu + (u_max - self.mu) * (1 - progress ** self.beta)
+        return target
 
-        # If it's first turn, aim for best possible utility
-        if self.last_sent_bid is None or self.last_received_bid is None:
-            return 1.0
 
-        opponent_utility = self.opponent_model.get_predicted_utility(self.last_received_bid)
-        own_utility = self.evaluate_bid(self.last_sent_bid)
-        concession = ((1 - self.mu) / own_utility) * (opponent_utility - own_utility)
-
-        target_utility = own_utility + concession
-        return target_utility
-
-    def find_bid(self):
+    def find_bid(self) -> Bid:
+        """
+        Finds and returns the best bid based on:
+        1. Target utility (ABMP baseline)
+        2. Candidate filtering within tolerance
+        3. TradeOff scoring (hybrid of own + opponent utility)
+        """
         all_bids = AllBidsList(self.domain)
         target_utility = self.get_target_utility()
         tolerance = 0.05
 
-        # 1. Generate bids near target (iso-utility band)
+        # Step 1: Filter by iso-utility band around target
         candidate_bids = [bid for bid in all_bids if abs(self.evaluate_bid(bid) - target_utility) <= tolerance]
 
-        # 2. Fallback if none found
+        # Step 2: Relax criteria if no candidates
         if not candidate_bids:
             candidate_bids = [bid for bid in all_bids if self.evaluate_bid(bid) >= target_utility]
         if not candidate_bids:
             candidate_bids = list(all_bids)
-
-        # 3. Sort by trade-off: similarity or mutual score
         if self.last_received_bid:
-            candidate_bids.sort(key=lambda b: self.compute_similarity(b, self.last_received_bid), reverse=True)
+            # Step 3: Score and sort candidates
+            candidate_bids.sort(key=self.score_bid, reverse=True)
         else:
-            candidate_bids.sort(key=lambda b: self.score_bid(b), reverse=True)
+            # Fallback: sort only by self utility if no info about opponent
+            candidate_bids.sort(key=self.evaluate_bid, reverse=True)
 
-        self.last_sent_bid = candidate_bids[0]
         return candidate_bids[0]
 
 
-    def compute_similarity(self, bid1, bid2):
-        matches = sum(1 for i in bid1.getIssues() if bid1.getValue(i) == bid2.getValue(i))
-        return matches / len(bid1.getIssues())
 
     ###########################################################################################
     ################################## Example methods below ##################################
@@ -371,29 +387,31 @@ class Group09Agent(DefaultParty):
 
         return best_bid
 
-    def score_bid(self, bid: Bid, alpha: float = 0.95, eps: float = 0.1) -> float:
-        """Calculate heuristic score for a bid
-
-        Args:
-            bid (Bid): Bid to score
-            alpha (float, optional): Trade-off factor between self interested and
-                altruistic behaviour. Defaults to 0.95.
-            eps (float, optional): Time pressure factor, balances between conceding
-                and Boulware behaviour over time. Defaults to 0.1.
+    def score_bid(self, bid: Bid) -> float:
+        """
+        Scores a bid based on a trade-off between self and opponent utility.
+        Weighting dynamically shifts from self-focus (ABMP) to joint utility (TradeOff).
 
         Returns:
-            float: score
+            float: heuristic score for ranking bids
         """
         progress = self.calculate_progress()
+        alpha = self.dynamic_alpha()
 
         our_utility = self.evaluate_bid(bid)
+        opponent_utility = self.opponent_model.get_predicted_utility(bid)
 
-        time_pressure = 1.0 - progress ** (1 / eps)
-        score = alpha * time_pressure * our_utility
+        time_pressure = 1.0 - progress ** (1 / self.beta)
 
-        if self.opponent_model is not None:
-            opponent_utility = self.opponent_model.get_predicted_utility(bid)
-            opponent_score = (1.0 - alpha * time_pressure) * opponent_utility
-            score += opponent_score
+        return alpha * time_pressure * our_utility + (1 - alpha * time_pressure) * opponent_utility
 
-        return score
+    def dynamic_alpha(self) -> float:
+        """
+        Returns a time-dependent weight alpha that prioritizes:
+        - Self-utility early in the negotiation
+        - Opponent utility later
+        Starts at 1.0 (fully selfish), decreases to 0.3 as deadline approaches.
+        """
+        progress = self.calculate_progress()
+        return max(0.3, 1.0 - self.calculate_progress())
+
