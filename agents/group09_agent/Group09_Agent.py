@@ -68,12 +68,12 @@ class Group09Agent(DefaultParty):
 
         # Opponent modeling and acceptance
         self.opponent_model: OpponentModel = None
-        self.T = 0.98  # Time after which acceptance becomes more lenient
+        self.T = 0.99  # Time after which acceptance becomes more lenient
         self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=False)
 
         # Strategy parameters
-        self.beta = 0.3  # Concession factor for ABMP
-        self.mu = 0.6  # Minimum acceptable utility (reservation level)
+        self.beta = 0.25  # Concession factor for ABMP
+        self.mu = 0.7  # Minimum acceptable utility (reservation level)
 
         self.logger.log(logging.INFO, "party is initialized")
 
@@ -209,6 +209,7 @@ class Group09Agent(DefaultParty):
         if self.last_received_bid and self.acceptance_condition.should_accept(self.last_received_bid):
             self.logger.log(logging.INFO, "Decided to accept the last received offer")
             action = Accept(self.me, self.last_received_bid)
+            self.send_action(action)
 
         else:
             # if not, find a bid to propose as counter offer
@@ -219,7 +220,7 @@ class Group09Agent(DefaultParty):
             self.log_bid(bid, str(self.me), "Offer")  # Log using the agent's own ID
             self.logger.log(logging.INFO, f"Generated new bid to offer: {bid}")
             action = Offer(self.me, bid)
-        self.send_action(action)
+            self.send_action(action)
 
     def save_data(self):
         """This method is called after the negotiation is finished. It can be used to store data
@@ -322,15 +323,28 @@ class Group09Agent(DefaultParty):
         score = self.profile.getUtility(bid)
         return float(score)
 
-    def get_target_utility(self):
+    def get_target_utility_abmp(self) -> float:
         """
-        Computes the target utility based on ABMP time-dependent concession.
+        Computes the target utility for the next bid using ABMP-style concession:
+        TU = UBS + CS
+        CS = beta * (1 - mu / UBS) * (UBO - UBS)
+        UBS = utility of our last sent bid
+        UBO = utility of opponent's last received bid (estimated using own model)
         """
-        progress = self.calculate_progress()  # t ∈ [0,1]
-        u_max = 1.0  # usually maximum utility is 1
+        UBS = self.evaluate_bid(self.last_sent_bid) if self.last_sent_bid else 1.0
+        UBO = self.evaluate_bid(self.last_received_bid) if self.last_received_bid else 0.0
 
-        target = self.mu + (u_max - self.mu) * (1 - progress ** self.beta)
-        return target
+        # Avoid division by zero
+        if UBS == 0:
+            UBS = 1e-6
+
+        utility_gap = UBO - UBS
+        concession_step = self.beta * (1 - self.mu / UBS) * utility_gap
+        target_utility = UBS + concession_step
+
+        # Ensure within bounds [mu, 1.0]
+        target_utility = max(self.mu, min(target_utility, 1.0))
+        return target_utility
 
 
     def find_bid(self) -> Bid:
@@ -342,7 +356,7 @@ class Group09Agent(DefaultParty):
         """
 
         all_bids = AllBidsList(self.domain)
-        target_utility = self.get_target_utility()
+        target_utility = self.get_target_utility_abmp()
         tolerance = 0.05
 
         # Step 1: Filter by iso-utility band around target
