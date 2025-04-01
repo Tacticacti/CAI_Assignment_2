@@ -93,13 +93,13 @@ class AcceptanceCondition:
         # 6. Final decision
         accept_decision = next_condition_met or (time_condition_met and const_condition_met)
 
-        # 7. Logging
-        self.agent.logger.log(logging.INFO,
-            f"Acceptance check: progress={progress:.2f}, "
-            f"bid utility={bid_utility:.2f}, "
-            f"{'AVG' if self.use_average else 'MAX'}_threshold={avg_threshold:.2f}, "
-            f"AC_next={next_condition_met}, AC_time={time_condition_met}, "
-            f"AC_const={const_condition_met} -> Decision: {accept_decision}"
-        )
+        # # 7. Logging
+        # self.agent.logger.log(logging.INFO,
+        #     f"Acceptance check: progress={progress:.2f}, "
+        #     f"bid utility={bid_utility:.2f}, "
+        #     f"{'AVG' if self.use_average else 'MAX'}_threshold={avg_threshold:.2f}, "
+        #     f"AC_next={next_condition_met}, AC_time={time_condition_met}, "
+        #     f"AC_const={const_condition_met} -> Decision: {accept_decision}"
+        # )
 
         return accept_decision

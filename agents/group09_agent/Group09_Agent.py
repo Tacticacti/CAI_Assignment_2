@@ -68,12 +68,12 @@ class Group09Agent(DefaultParty):
 
         # Opponent modeling and acceptance
         self.opponent_model: OpponentModel = None
-        self.T = 0.99  # Time after which acceptance becomes more lenient
+        self.T = 0.97  # Time after which acceptance becomes more lenient
         self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=False)
 
         # Strategy parameters
-        self.beta = 0.25  # Concession factor for ABMP
-        self.mu = 0.7  # Minimum acceptable utility (reservation level)
+        self.beta = 0.35  # Concession factor for ABMP
+        self.mu = 0.6  # Minimum acceptable utility (reservation level)
 
         self.logger.log(logging.INFO, "party is initialized")
 
@@ -393,15 +393,12 @@ class Group09Agent(DefaultParty):
             float: score for ranking purposes.
         """
 
-        progress = self.calculate_progress()
         alpha = self.dynamic_alpha()
 
         our_utility = self.evaluate_bid(bid)
         opponent_utility = self.opponent_model.get_predicted_utility(bid)
 
-        time_pressure = 1.0 - progress ** (1 / self.beta)
-
-        return alpha * time_pressure * our_utility + (1 - alpha * time_pressure) * opponent_utility
+        return alpha  * our_utility + (1 - alpha) * opponent_utility
 
     def dynamic_alpha(self) -> float:
         """
@@ -411,6 +408,5 @@ class Group09Agent(DefaultParty):
         Returns:
             float: alpha in [0.3, 1.0]
         """
-        progress = self.calculate_progress()
         return max(0.3, 1.0 - self.calculate_progress())
 
