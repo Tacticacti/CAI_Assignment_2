@@ -123,6 +123,11 @@ class IssueEstimator:
     def bayesian_update(self, value: Value):
         # Likelihood of the observed value
         likelihood = {v: 1 if v == value else 0.1 for v in self.prior_probabilities}
+        # total = sum(vt.count for vt in self.value_trackers.values())
+        # likelihood = {
+        #     v: (self.value_trackers[v].count / total if total > 0 else 1 / self.num_values)
+        #     for v in self.prior_probabilities
+        # }
 
         # Update posterior probabilities using Bayes' theorem
         for v in self.prior_probabilities:

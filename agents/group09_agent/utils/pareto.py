@@ -45,6 +45,9 @@ if __name__ == '__main__':
         ["domains/domain01/profileA.json", "domains/domain01/profileB.json"],
         ["domains/domain02/profileA.json", "domains/domain02/profileB.json"],
         ["domains/domain03/profileA.json", "domains/domain03/profileB.json"],
+        ["domains/domain07/profileA.json", "domains/domain07/profileB.json"],
+        ["domains/domain43/profileA.json", "domains/domain43/profileB.json"],
+        ["domains/domain29/profileA.json", "domains/domain29/profileB.json"],
         # Add more pairs here if needed
     ]
 

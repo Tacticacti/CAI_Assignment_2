@@ -29,9 +29,6 @@ from tudelft_utilities_logging.ReportToLogger import ReportToLogger
 
 from .utils.opponent_model import OpponentModel
 from .utils.acceptance_condition import AcceptanceCondition
-from .utils.plot_pareto_trace import PlotParetoTrace
-from pathlib import Path
-
 
 class Group09Agent(DefaultParty):
     """
@@ -111,7 +108,7 @@ class Group09Agent(DefaultParty):
             self.profile = profile_connection.getProfile()
             self.domain = self.profile.getDomain()
 
-            # profile_connection.close()
+            profile_connection.close()
 
         # ActionDone informs you of an action (an offer or an accept)
         # that is performed by one of the agents (including yourself).
@@ -314,7 +311,7 @@ class Group09Agent(DefaultParty):
         Returns:
             float: The progress of the negotiation as a float between 0 (start) and 1 (end).
         """
-        progress = self.progress.get(int(time() * 1000))
+        progress = self.progress.get((time() * 1000))
         return progress  # Ensure progress is within [0, 1]
 
 
