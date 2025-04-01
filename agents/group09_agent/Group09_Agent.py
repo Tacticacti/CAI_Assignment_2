@@ -190,12 +190,12 @@ class Group09Agent(DefaultParty):
             # update opponent model with bid
             self.opponent_model.update(bid)
 
-            # Track issue importance based on changes in issue values
-            for issue_id, issue_estimator in self.opponent_model.issue_estimators.items():
-                current_value = bid.getValue(issue_id)
-                if issue_estimator.last_value is not None and issue_estimator.last_value != current_value:
-                    issue_estimator.change_count += 1
-                issue_estimator.last_value = current_value
+            # # Track issue importance based on changes in issue values
+            # for issue_id, issue_estimator in self.opponent_model.issue_estimators.items():
+            #     current_value = bid.getValue(issue_id)
+            #     if issue_estimator.last_value is not None and issue_estimator.last_value != current_value:
+            #         issue_estimator.change_count += 1
+            #     issue_estimator.last_value = current_value
 
             # set bid as last received
             self.last_received_bid = bid
