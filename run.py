@@ -34,18 +34,18 @@ settings = {
 #                 "results_dir": str(RESULTS_DIR),
 #             },
 #         },
-#         {
-#             "class": "agents.hardliner_agent.hardliner_agent.HardlinerAgent",
-#             "parameters": {"storage_dir": "agent_storage/HardlinerAgent",
-#                            "results_dir": str(RESULTS_DIR), },
-#         },
         {
-            "class": "agents.group09_agent.Group09_Agent.Group09Agent",
-            "parameters": {
-                "storage_dir": "agent_storage/Group09Agent",
-                "results_dir": str(RESULTS_DIR),
-            },
+            "class": "agents.hardliner_agent.hardliner_agent.HardlinerAgent",
+            "parameters": {"storage_dir": "agent_storage/HardlinerAgent",
+                           "results_dir": str(RESULTS_DIR), },
         },
+#         {
+#             "class": "agents.group09_agent.Group09_Agent.Group09Agent",
+#             "parameters": {
+#                 "storage_dir": "agent_storage/Group09Agent",
+#                 "results_dir": str(RESULTS_DIR),
+#             },
+#         },
         {
             "class": "agents.group09_agent.Group09_Agent.Group09Agent",
             "parameters": {

@@ -72,7 +72,7 @@ class Group09Agent(DefaultParty):
         self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=True)
 
         # Strategy parameters
-        self.beta = 0.35  # Concession factor for ABMP
+        self.beta = 0.25  # Concession factor for ABMP
         self.mu = 0.6  # Minimum acceptable utility (reservation level)
 
         self.logger.log(logging.INFO, "party is initialized")
