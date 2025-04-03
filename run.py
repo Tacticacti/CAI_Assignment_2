@@ -20,7 +20,7 @@ if not RESULTS_DIR.exists():
 #   You need to specify a time deadline (is milliseconds (ms)) we are allowed to negotiate before we end without agreement
 from pathlib import Path
 
-domain_path = Path("domains/domain02/")
+domain_path = Path("domains/domain00/")
 profileA = "profileA.json"
 profileB = "profileB.json"
 pareto_csv = domain_path / f"pareto_{Path(profileA).stem}_{Path(profileB).stem}.csv"
@@ -34,9 +34,17 @@ settings = {
 #                 "results_dir": str(RESULTS_DIR),
 #             },
 #         },
+#         {
+#             "class": "agents.hardliner_agent.hardliner_agent.HardlinerAgent",
+#             "parameters": {"storage_dir": "agent_storage/HardlinerAgent",
+#                            "results_dir": str(RESULTS_DIR), },
+#         },
         {
-            "class": "agents.boulware_agent.boulware_agent.BoulwareAgent",
-            "parameters": {"storage_dir": "agent_storage/BoulwareAgent"},
+            "class": "agents.group09_agent.Group09_Agent.Group09Agent",
+            "parameters": {
+                "storage_dir": "agent_storage/Group09Agent",
+                "results_dir": str(RESULTS_DIR),
+            },
         },
         {
             "class": "agents.group09_agent.Group09_Agent.Group09Agent",
@@ -45,15 +53,8 @@ settings = {
                 "results_dir": str(RESULTS_DIR),
             },
         },
-        # {
-        #     "class": "agents.group09_agent.Group09_Agent.Group09Agent",
-        #     "parameters": {
-        #         "storage_dir": "agent_storage/Group09Agent",
-        #         "results_dir": str(RESULTS_DIR),
-        #     },
-        # },
     ],
-    "profiles": ["domains/domain02/profileA.json", "domains/domain02/profileB.json"],
+    "profiles": ["domains/domain00/profileA.json", "domains/domain00/profileB.json"],
     "deadline_time_ms": 10000,
 }
 

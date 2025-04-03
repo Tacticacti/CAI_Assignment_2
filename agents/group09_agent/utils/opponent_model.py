@@ -105,6 +105,33 @@ class OpponentModel:
         probabilities = [self.compute_probability(util, sigma, expected_value) for util in hypothesis_utilities]
         return hypothesis_utilities[probabilities.index(max(probabilities))]
 
+    def fuzzy_similarity_bid(self, bid1: Bid, bid2: Bid) -> float:
+        """
+        Compute weighted similarity between two bids using issue estimators.
+        Returns value in [0, 1].
+        """
+        if not bid1 or not bid2:
+            return 0.0
+
+        sim = 0.0
+        for issue in self.domain.getIssues():
+            val1 = bid1.getValue(issue)
+            val2 = bid2.getValue(issue)
+
+            # Use 1 if equal, 0 otherwise (discrete); can be extended to graded similarity
+            sim_i = 1.0 if val1 == val2 else 0.0
+
+            # Weight based on opponent's hypothesis
+            weight = 0.0
+            for hyp in self.hypotheses:
+                if issue in hyp.issue_estimators:
+                    weight += hyp.issue_estimators[issue].weight
+            weight /= len(self.hypotheses)
+
+            sim += weight * sim_i
+
+        return sim  # No need to normalize since weights sum to 1
+
     # Given
     def update_rankings(self, hypothesis: Hypothesis, utility_values):
         """

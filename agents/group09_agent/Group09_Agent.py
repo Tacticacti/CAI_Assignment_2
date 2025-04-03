@@ -68,8 +68,8 @@ class Group09Agent(DefaultParty):
 
         # Opponent modeling and acceptance
         self.opponent_model: OpponentModel = None
-        self.T = 0.97  # Time after which acceptance becomes more lenient
-        self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=False)
+        self.T = 0.98  # Time after which acceptance becomes more lenient
+        self.acceptance_condition = AcceptanceCondition(self, self.T, use_average=True)
 
         # Strategy parameters
         self.beta = 0.35  # Concession factor for ABMP
@@ -161,7 +161,11 @@ class Group09Agent(DefaultParty):
         Args:
             action (Action): action of this agent
         """
-        self.getConnection().send(action)
+        try:
+            self.getConnection().send(action)
+        except Exception as e:
+            print(e)
+
 
     # give a description of your agent
     def getDescription(self) -> str:
@@ -171,7 +175,7 @@ class Group09Agent(DefaultParty):
         Returns:
             str: Agent description
         """
-        return "Group 09 agent for the ANL 2022 competition"
+        return  "Group 09 agent with ABMP-style concession bidding strategy, Bayesian Opponent Modeling and Combi acceptance condition."
 
     def opponent_action(self, action):
         """Process an action that was received from the opponent.
@@ -190,13 +194,6 @@ class Group09Agent(DefaultParty):
             # update opponent model with bid
             self.opponent_model.update(bid)
 
-            # # Track issue importance based on changes in issue values
-            # for issue_id, issue_estimator in self.opponent_model.issue_estimators.items():
-            #     current_value = bid.getValue(issue_id)
-            #     if issue_estimator.last_value is not None and issue_estimator.last_value != current_value:
-            #         issue_estimator.change_count += 1
-            #     issue_estimator.last_value = current_value
-
             # set bid as last received
             self.last_received_bid = bid
             self.log_bid(bid, str(self.other), "Offer")  # Ensure actor is properly identified
@@ -208,19 +205,17 @@ class Group09Agent(DefaultParty):
         # check if the last received offer is good enough
         if self.last_received_bid and self.acceptance_condition.should_accept(self.last_received_bid):
             self.logger.log(logging.INFO, "Decided to accept the last received offer")
-            action = Accept(self.me, self.last_received_bid)
-            self.send_action(action)
+            self.send_action(Accept(self.me, self.last_received_bid))
 
         else:
             # if not, find a bid to propose as counter offer
             bid = self.find_bid()
             # Remember to update `self.last_sent_bid` with the new bid
             self.last_sent_bid = bid
+            self.send_action(Offer(self.me, bid))
             # Log the bid before sending it
             self.log_bid(bid, str(self.me), "Offer")  # Log using the agent's own ID
-            self.logger.log(logging.INFO, f"Generated new bid to offer: {bid}")
-            action = Offer(self.me, bid)
-            self.send_action(action)
+
 
     def save_data(self):
         """This method is called after the negotiation is finished. It can be used to store data
@@ -230,66 +225,10 @@ class Group09Agent(DefaultParty):
         data = "Data for learning (see README.md)"
         with open(f"{self.storage_dir}/data.md", "w") as f:
             f.write(data)
-            #self.visualize_pareto_front()
-            #print(len(self.bid_history))
-
 
     ###########################################################################################
     ################################## Helper methods below ##################################
     ###########################################################################################
-    # def visualize_pareto_front(self):
-    #     """
-    #     Uses PlotParetoTrace to visualize bid history and the Pareto frontier,
-    #     ensuring the initiator is always plotted on the x-axis.
-    #     """
-    #     pareto_csv_path = Path(self.parameters.get("pareto_csv"))
-    #
-    #     # Separate bids
-    #     self_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if b['actor'] == str(self.me)]
-    #     other_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if
-    #                   b['actor'] != str(self.me)]
-    #     accepted_bids = [(b['utility_self'], b['utility_opponent']) for b in self.bid_history if b['type'] == "Accept"]
-    #
-    #     accepted_bid = accepted_bids[-1] if accepted_bids else None
-    #     # print(str(self.me))
-    #     # print(str(self.other))
-    #
-    #     self_name = str(self.me).rsplit("_", 2)[0]
-    #     other_name = str(self.other).rsplit("_", 2)[0]
-    #
-    #     # Get position suffixes
-    #     self_position = int(str(self.me).rsplit("_", 1)[-1])
-    #
-    #     # Determine who is Agent 1 (odd = agent 1)
-    #     if self_position % 2 == 1:
-    #         agent1_name = self_name
-    #         agent2_name = other_name
-    #         agent1_bids = self_bids
-    #         agent2_bids = other_bids
-    #         accepted_bid_remapped = accepted_bid if accepted_bid else None
-    #     else:
-    #         agent1_name = other_name
-    #         agent2_name = self_name
-    #         agent1_bids = [(u_opp, u_self) for (u_self, u_opp) in other_bids]
-    #         agent2_bids = [(u_opp, u_self) for (u_self, u_opp) in self_bids]
-    #         accepted_bid_remapped = (accepted_bid[1], accepted_bid[0]) if accepted_bid else None
-    #
-    #     # Create and save plot
-    #     plotter = PlotParetoTrace(
-    #         agent1_name=agent1_name,
-    #         agent2_name=agent2_name,
-    #         pareto_csv_path=pareto_csv_path,
-    #         agent1_bids=agent1_bids,
-    #         agent2_bids=agent2_bids,
-    #         accepted_bid=accepted_bid_remapped,
-    #         title="Negotiation Bids with Estimated Opponent Utility and Pareto Frontier"
-    #     )
-    #
-    #     fig = plotter.plot()
-    #     os.makedirs(self.result_dir, exist_ok=True)
-    #     filename = f"pareto_trace_plot_{agent1_name}(initiator)_vs_{agent2_name}.html"
-    #     fig.write_html(Path(self.result_dir) / filename)
-
 
     def log_bid(self, bid, actor, actionType):
         # create opponent model if it was not yet initialised
@@ -346,67 +285,37 @@ class Group09Agent(DefaultParty):
         target_utility = max(self.mu, min(target_utility, 1.0))
         return target_utility
 
-
     def find_bid(self) -> Bid:
         """
-        Chooses a bid to offer based on hybrid strategy:
-        1. Select bids around target utility (ABMP).
-        2. Score candidates using a TradeOff heuristic (iso-utility band).
-        3. Fallback to best self-utility bid if no info.
-        """
+            Selects the next bid to offer using a  ABMP  approach:
+            1. Compute the target utility based on ABMP.
+            2. Filter bids within a utility band (iso-utility candidates).
+            3. Relax constraints if no bids are found.
+            4. Return the bid with the highest self-utility among candidates.
+            """
 
         all_bids = AllBidsList(self.domain)
         target_utility = self.get_target_utility_abmp()
+
         tolerance = 0.05
 
-        # Step 1: Filter by iso-utility band around target
-        candidate_bids = [bid for bid in all_bids if abs(self.evaluate_bid(bid) - target_utility) <= tolerance]
+        # Step 1: Precompute self-utility once
+        bid_utils = [(bid, self.evaluate_bid(bid)) for bid in all_bids]
 
-        # Step 2: Relax criteria if no candidates
-        if not candidate_bids:
-            candidate_bids = [bid for bid in all_bids if self.evaluate_bid(bid) >= target_utility]
-        if not candidate_bids:
-            candidate_bids = list(all_bids)
-        if self.last_received_bid:
-            # Step 3: Score and sort candidates
-            candidate_bids.sort(key=self.score_bid, reverse=True)
-        else:
-            # Fallback: sort only by self utility if no info about opponent
-            candidate_bids.sort(key=self.evaluate_bid, reverse=True)
+        # Step 2: Filter bids near target utility
+        candidate_utils = [(b, u) for (b, u) in bid_utils if abs(u - target_utility) <= tolerance]
 
-        return candidate_bids[0]
+        # Step 3: Relax if no candidates
+        if not candidate_utils:
+            candidate_utils = [(b, u) for (b, u) in bid_utils if u >= target_utility]
 
 
+        best_bid, _ = max(candidate_utils, key=lambda x: x[1])
 
-    ###########################################################################################
-    ################################## Example methods below ##################################
-    ###########################################################################################
+        self.last_sent_bid = best_bid
+        return best_bid
 
 
-    def score_bid(self, bid: Bid) -> float:
 
-        """
-        Computes a heuristic score for a bid using a weighted combination
-        of self-utility and predicted opponent utility.
 
-        Returns:
-            float: score for ranking purposes.
-        """
-
-        alpha = self.dynamic_alpha()
-
-        our_utility = self.evaluate_bid(bid)
-        opponent_utility = self.opponent_model.get_predicted_utility(bid)
-
-        return alpha  * our_utility + (1 - alpha) * opponent_utility
-
-    def dynamic_alpha(self) -> float:
-        """
-        Calculates a time-dependent alpha value that governs the weight
-        between self-interest and opponent interest in bid scoring.
-
-        Returns:
-            float: alpha in [0.3, 1.0]
-        """
-        return max(0.3, 1.0 - self.calculate_progress())
 
